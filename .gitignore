@@ -15,12 +15,6 @@ env/
 .env
 .env.local
 
-# Google OAuth credentials
-google_credentials.json
-
-# User data (contains personal information)
-user_data.json
-
 # IDE/Editor files (optional but recommended)
 .vscode/
 .idea/

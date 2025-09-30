@@ -7,7 +7,6 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from datetime import datetime
 import json
-from streamlit_google_auth import Authenticate
 
 load_dotenv()
 
@@ -35,10 +34,6 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #45a049;
     }
-    .score-excellent { color: #4CAF50; font-weight: bold; }
-    .score-good { color: #8BC34A; font-weight: bold; }
-    .score-average { color: #FFC107; font-weight: bold; }
-    .score-poor { color: #FF5722; font-weight: bold; }
     .auth-container {
         max-width: 600px;
         margin: 50px auto;
@@ -54,9 +49,24 @@ st.markdown("""
 # Google OAuth Configuration
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8501")
 
-# User database (JSON file)
+# Auto-detect environment
+def get_redirect_uri():
+    """Get the appropriate redirect URI based on environment"""
+    env_redirect = os.getenv("REDIRECT_URI", "")
+    if env_redirect:
+        return env_redirect
+    
+    if os.getenv("RENDER"):
+        render_url = os.getenv("RENDER_EXTERNAL_URL", "")
+        if render_url:
+            return render_url
+    
+    return "http://localhost:8501"
+
+REDIRECT_URI = get_redirect_uri()
+
+# User database
 USER_DATA_FILE = "user_data.json"
 
 def load_user_data():
@@ -77,7 +87,6 @@ def get_user_usage(user_id):
     if user_id in user_data:
         return user_data[user_id]
     
-    # Create new user entry
     new_user = {
         'usage_count': 0,
         'last_reset': datetime.now().strftime('%Y-%m-%d'),
@@ -98,7 +107,6 @@ def update_user_usage(user_id):
             'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
     
-    # Check if we need to reset monthly usage (30 days)
     last_reset = datetime.strptime(user_data[user_id]['last_reset'], '%Y-%m-%d')
     if (datetime.now() - last_reset).days >= 30:
         user_data[user_id]['usage_count'] = 0
@@ -111,139 +119,99 @@ def update_user_usage(user_id):
 def check_usage_limit(user_id):
     """Check if user has exceeded usage limit"""
     usage_data = get_user_usage(user_id)
-    USAGE_LIMIT = 5  # Free tier: 5 analyses per month
+    USAGE_LIMIT = 5
     return usage_data['usage_count'] < USAGE_LIMIT
 
-def create_google_credentials_file():
-    """Create google_credentials.json from environment variables"""
-    if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
-        credentials = {
-            "web": {
-                "client_id": GOOGLE_CLIENT_ID,
-                "client_secret": GOOGLE_CLIENT_SECRET,
-                "redirect_uris": [REDIRECT_URI],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token"
-            }
-        }
-        with open('google_credentials.json', 'w') as f:
-            json.dump(credentials, f, indent=2)
+# Simple authentication using query parameters
+def handle_simple_auth():
+    """Simple authentication flow using query parameters"""
+    query_params = st.query_params
+    
+    # Check if user is logging out
+    if 'logout' in query_params:
+        if 'authenticated' in st.session_state:
+            del st.session_state['authenticated']
+        if 'user_email' in st.session_state:
+            del st.session_state['user_email']
+        if 'user_name' in st.session_state:
+            del st.session_state['user_name']
+        st.query_params.clear()
+        st.rerun()
+    
+    # Check if already authenticated
+    if st.session_state.get('authenticated', False):
         return True
-    return False
-
-# Initialize Google Auth
-authenticator = None
-auth_available = False
-
-# Check if credentials file exists or can be created
-if os.path.exists('google_credentials.json') or create_google_credentials_file():
-    try:
-        authenticator = Authenticate(
-            secret_credentials_path='google_credentials.json',
-            cookie_name='resume_analyzer_auth',
-            cookie_key='resume_analyzer_secret_key_12345',  # Make this more secure in production
-            redirect_uri=REDIRECT_URI,
-        )
-        auth_available = True
-    except Exception as e:
-        st.error(f"Authentication initialization error: {str(e)}")
-        auth_available = False
-
-# Check authentication
-if auth_available and authenticator:
-    # Use Google OAuth
-    try:
-        authenticator.check_authentification()
-    except Exception as e:
-        st.error(f"Authentication check error: {str(e)}")
-        auth_available = False
     
-    if auth_available and not st.session_state.get('connected', False):
-        # Show login page
-        st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
-        st.title("🔐 AI Resume Analyzer Pro")
-        st.markdown("### Sign in with Google to continue")
-        st.markdown("Get **5 free resume analyses** per month")
-        st.markdown("---")
-        
-        try:
-            authenticator.login()
-        except Exception as e:
-            st.error(f"Login error: {str(e)}")
-            st.info("Falling back to demo mode...")
-            auth_available = False
-        
-        if auth_available:
-            st.markdown("</div>", unsafe_allow_html=True)
-            st.markdown("---")
-            st.info("🔒 **Secure Authentication**: Your Google account keeps your data safe and private.")
-            st.stop()
-    
-    # User is authenticated
-    if auth_available:
-        user_email = st.session_state.get('user_info', {}).get('email', 'user@example.com')
-        user_name = st.session_state.get('user_info', {}).get('name', 'User')
-        user_id = user_email.replace('@', '_').replace('.', '_')
-    else:
-        auth_available = False
-
-if not auth_available:
-    # Fallback: Simple demo mode without Google OAuth
+    # Show login page
     st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
     st.title("🔐 AI Resume Analyzer Pro")
+    st.markdown("### Sign in to continue")
+    st.markdown("Get **5 free resume analyses** per month")
+    st.markdown("---")
     
-    if 'demo_authenticated' not in st.session_state:
-        st.session_state.demo_authenticated = False
+    # Check if Google OAuth is configured
+    oauth_configured = bool(GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)
     
-    if not st.session_state.demo_authenticated:
-        st.warning("⚠️ Google OAuth not configured. Using demo mode.")
-        st.markdown("### Demo Login")
-        
-        with st.expander("📖 How to enable Google Sign-In"):
-            st.info("""
-            **Setup Instructions:**
-            
-            1. Go to [Google Cloud Console](https://console.cloud.google.com)
-            2. Create a new project or select existing one
-            3. Enable Google+ API (or Google Identity services)
-            4. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
-            5. Configure OAuth consent screen
-            6. Add authorized redirect URI: `http://localhost:8501`
-            7. Add to `.env` file:
-               ```
-               GOOGLE_CLIENT_ID=your_client_id_here.apps.googleusercontent.com
-               GOOGLE_CLIENT_SECRET=your_client_secret_here
-               REDIRECT_URI=http://localhost:8501
-               ```
-            8. Restart the application
-            """)
-        
+    if oauth_configured:
+        st.info("🔐 Google Sign-In is configured!")
+        st.warning("⚠️ Note: Google OAuth via streamlit-google-auth has redirect issues. Using simple email login instead.")
         st.markdown("---")
-        demo_email = st.text_input("Enter email for demo:", placeholder="your.email@gmail.com")
-        demo_name = st.text_input("Enter name:", placeholder="Your Name")
+    
+    st.markdown("### 📧 Simple Login")
+    
+    with st.form("login_form"):
+        email = st.text_input("Email Address", placeholder="your.email@gmail.com")
+        name = st.text_input("Your Name", placeholder="John Doe")
+        submitted = st.form_submit_button("Sign In", use_container_width=True)
         
-        if st.button("Demo Login", use_container_width=True):
-            if demo_email and demo_name:
-                st.session_state.demo_authenticated = True
-                st.session_state.demo_email = demo_email
-                st.session_state.demo_name = demo_name
-                st.rerun()
+        if submitted:
+            if email and name:
+                # Validate email format
+                if '@' in email and '.' in email:
+                    st.session_state['authenticated'] = True
+                    st.session_state['user_email'] = email
+                    st.session_state['user_name'] = name
+                    st.query_params.clear()
+                    st.rerun()
+                else:
+                    st.error("Please enter a valid email address")
             else:
                 st.error("Please enter both email and name")
-        
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.stop()
     
-    # Demo mode authenticated
-    user_email = st.session_state.demo_email
-    user_name = st.session_state.demo_name
-    user_id = user_email.replace('@', '_').replace('.', '_')
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("---")
+    
+    with st.expander("🔧 Want to enable full Google OAuth?"):
+        st.info("""
+        **Current Issue:** The `streamlit-google-auth` library has redirect URI issues that cause "localhost refused to connect" errors.
+        
+        **Alternative Solutions:**
+        1. Use this simple email login (current)
+        2. Implement custom OAuth flow with `google-auth-oauthlib`
+        3. Use Firebase Authentication
+        4. Use Auth0 or similar service
+        
+        **To enable Google OAuth properly:**
+        - Consider using `streamlit-oauth` or implementing custom OAuth
+        - Or use Firebase Auth which works better with Streamlit
+        """)
+    
+    return False
 
-# Main App (after authentication)
+# Check authentication
+if not handle_simple_auth():
+    st.stop()
+
+# User is authenticated
+user_email = st.session_state['user_email']
+user_name = st.session_state['user_name']
+user_id = user_email.replace('@', '_').replace('.', '_')
+
+# Main App
 st.title("📄 AI Resume Analyzer Pro")
 st.markdown(f"**Welcome back, {user_name}!** 👋")
 
-# Top bar with user info and logout
+# Top bar
 col1, col2, col3 = st.columns([4, 1, 1])
 
 with col1:
@@ -258,10 +226,7 @@ with col2:
 
 with col3:
     if st.button("🚪 Logout"):
-        if auth_available and authenticator:
-            authenticator.logout()
-        else:
-            st.session_state.demo_authenticated = False
+        st.query_params['logout'] = 'true'
         st.rerun()
 
 st.markdown("---")
@@ -271,7 +236,6 @@ if not check_usage_limit(user_id):
     st.error("🚫 **Monthly Limit Reached!**")
     st.warning(f"You've used all 5 analyses for this month.")
     
-    # Calculate next reset date
     last_reset = datetime.strptime(usage_data['last_reset'], '%Y-%m-%d')
     next_reset = datetime.fromtimestamp(last_reset.timestamp() + (30 * 24 * 60 * 60))
     
@@ -436,7 +400,6 @@ job_role = st.text_input(
 analyze_btn = st.button("🚀 Analyze Resume", type="primary", use_container_width=True)
 
 if analyze_btn and uploaded_file:
-    # Increment usage count
     update_user_usage(user_id)
     
     with st.spinner("🔍 Analyzing your resume... Please wait."):
@@ -505,7 +468,6 @@ Be constructive, specific, and prioritize the most impactful changes."""
             
             st.markdown(response.text)
             
-            # Update usage display
             remaining = 5 - get_user_usage(user_id)['usage_count']
             if remaining > 0:
                 st.success(f"✅ Analysis complete! You have **{remaining}** analyses remaining this month.")
@@ -514,7 +476,6 @@ Be constructive, specific, and prioritize the most impactful changes."""
             
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
-            # Rollback usage if analysis failed
             user_data = load_user_data()
             if user_id in user_data:
                 user_data[user_id]['usage_count'] = max(0, user_data[user_id]['usage_count'] - 1)
