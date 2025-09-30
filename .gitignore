@@ -14,3 +14,10 @@ env/
 # Environment variables (API keys, secrets)
 .env
 .env.local
+
+
+# Google OAuth credentials
+google_credentials.json
+
+# User data (contains personal information)
+user_data.jsongoogle_credentials.json
