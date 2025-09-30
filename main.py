@@ -114,23 +114,51 @@ def check_usage_limit(user_id):
     USAGE_LIMIT = 5  # Free tier: 5 analyses per month
     return usage_data['usage_count'] < USAGE_LIMIT
 
+def create_google_credentials_file():
+    """Create google_credentials.json from environment variables"""
+    if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+        credentials = {
+            "web": {
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "redirect_uris": [REDIRECT_URI],
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token"
+            }
+        }
+        with open('google_credentials.json', 'w') as f:
+            json.dump(credentials, f, indent=2)
+        return True
+    return False
+
 # Initialize Google Auth
-if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
-    authenticator = Authenticate(
-        secret_credentials_path='google_credentials.json',
-        cookie_name='resume_analyzer_auth',
-        cookie_key='resume_analyzer_secret_key',
-        redirect_uri=REDIRECT_URI,
-    )
-else:
-    authenticator = None
+authenticator = None
+auth_available = False
+
+# Check if credentials file exists or can be created
+if os.path.exists('google_credentials.json') or create_google_credentials_file():
+    try:
+        authenticator = Authenticate(
+            secret_credentials_path='google_credentials.json',
+            cookie_name='resume_analyzer_auth',
+            cookie_key='resume_analyzer_secret_key_12345',  # Make this more secure in production
+            redirect_uri=REDIRECT_URI,
+        )
+        auth_available = True
+    except Exception as e:
+        st.error(f"Authentication initialization error: {str(e)}")
+        auth_available = False
 
 # Check authentication
-if authenticator:
+if auth_available and authenticator:
     # Use Google OAuth
-    authenticator.check_authentification()
+    try:
+        authenticator.check_authentification()
+    except Exception as e:
+        st.error(f"Authentication check error: {str(e)}")
+        auth_available = False
     
-    if not st.session_state['connected']:
+    if auth_available and not st.session_state.get('connected', False):
         # Show login page
         st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
         st.title("🔐 AI Resume Analyzer Pro")
@@ -138,19 +166,28 @@ if authenticator:
         st.markdown("Get **5 free resume analyses** per month")
         st.markdown("---")
         
-        authenticator.login()
+        try:
+            authenticator.login()
+        except Exception as e:
+            st.error(f"Login error: {str(e)}")
+            st.info("Falling back to demo mode...")
+            auth_available = False
         
-        st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("---")
-        st.info("🔒 **Secure Authentication**: Your Google account keeps your data safe and private.")
-        st.stop()
+        if auth_available:
+            st.markdown("</div>", unsafe_allow_html=True)
+            st.markdown("---")
+            st.info("🔒 **Secure Authentication**: Your Google account keeps your data safe and private.")
+            st.stop()
     
     # User is authenticated
-    user_email = st.session_state['user_info'].get('email', 'user@example.com')
-    user_name = st.session_state['user_info'].get('name', 'User')
-    user_id = user_email.replace('@', '_').replace('.', '_')
-    
-else:
+    if auth_available:
+        user_email = st.session_state.get('user_info', {}).get('email', 'user@example.com')
+        user_name = st.session_state.get('user_info', {}).get('name', 'User')
+        user_id = user_email.replace('@', '_').replace('.', '_')
+    else:
+        auth_available = False
+
+if not auth_available:
     # Fallback: Simple demo mode without Google OAuth
     st.markdown("<div class='auth-container'>", unsafe_allow_html=True)
     st.title("🔐 AI Resume Analyzer Pro")
@@ -161,21 +198,25 @@ else:
     if not st.session_state.demo_authenticated:
         st.warning("⚠️ Google OAuth not configured. Using demo mode.")
         st.markdown("### Demo Login")
-        st.info("""
-        **To enable Google Sign-In:**
         
-        1. Go to [Google Cloud Console](https://console.cloud.google.com)
-        2. Create a new project or select existing
-        3. Enable Google+ API
-        4. Create OAuth 2.0 credentials
-        5. Add to .env:
-           ```
-           GOOGLE_CLIENT_ID=your_client_id
-           GOOGLE_CLIENT_SECRET=your_client_secret
-           REDIRECT_URI=http://localhost:8501
-           ```
-        6. Create google_credentials.json with your OAuth credentials
-        """)
+        with st.expander("📖 How to enable Google Sign-In"):
+            st.info("""
+            **Setup Instructions:**
+            
+            1. Go to [Google Cloud Console](https://console.cloud.google.com)
+            2. Create a new project or select existing one
+            3. Enable Google+ API (or Google Identity services)
+            4. Go to "Credentials" → "Create Credentials" → "OAuth 2.0 Client ID"
+            5. Configure OAuth consent screen
+            6. Add authorized redirect URI: `http://localhost:8501`
+            7. Add to `.env` file:
+               ```
+               GOOGLE_CLIENT_ID=your_client_id_here.apps.googleusercontent.com
+               GOOGLE_CLIENT_SECRET=your_client_secret_here
+               REDIRECT_URI=http://localhost:8501
+               ```
+            8. Restart the application
+            """)
         
         st.markdown("---")
         demo_email = st.text_input("Enter email for demo:", placeholder="your.email@gmail.com")
@@ -217,7 +258,7 @@ with col2:
 
 with col3:
     if st.button("🚪 Logout"):
-        if authenticator:
+        if auth_available and authenticator:
             authenticator.logout()
         else:
             st.session_state.demo_authenticated = False
