@@ -58,10 +58,36 @@ if 'current_resume_text' not in st.session_state:
     st.session_state.current_resume_text = None
 if 'previous_score' not in st.session_state:
     st.session_state.previous_score = None
+if 'resume_analysis_count' not in st.session_state:
+    st.session_state.resume_analysis_count = 0
+if 'job_matcher_count' not in st.session_state:
+    st.session_state.job_matcher_count = 0
+if 'cover_letter_count' not in st.session_state:
+    st.session_state.cover_letter_count = 0
+
+# Usage limits - 3 tries per feature
+MAX_ANALYSES = 3
 
 # Sidebar
 with st.sidebar:
     st.header("⚙️ Analysis Settings")
+    
+    # Display usage counters for each feature
+    st.markdown("### 📊 Usage Limits")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Resume Analysis", f"{st.session_state.resume_analysis_count}/{MAX_ANALYSES}")
+    with col2:
+        st.metric("Job Matcher", f"{st.session_state.job_matcher_count}/{MAX_ANALYSES}")
+    
+    st.metric("Cover Letter", f"{st.session_state.cover_letter_count}/{MAX_ANALYSES}")
+    
+    if (st.session_state.resume_analysis_count >= MAX_ANALYSES and 
+        st.session_state.job_matcher_count >= MAX_ANALYSES and 
+        st.session_state.cover_letter_count >= MAX_ANALYSES):
+        st.error("⚠️ All limits reached")
+    
+    st.markdown("---")
     
     analysis_mode = st.radio(
         "Analysis Mode",
