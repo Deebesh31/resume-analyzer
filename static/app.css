@@ -927,6 +927,122 @@ body { font-size: 16px; }
   .footer-note { font-size: 9px; }
 }
 
+/* Larger reading type for form instructions and generated review content. */
+.workspace-content .field-label { font-size: 22px; }
+.workspace-content .optional { font-size: 16px; }
+.workspace-content .form-field input[type="text"],
+.workspace-content .form-field input[type="password"],
+.workspace-content .form-field select,
+.workspace-content .form-field textarea,
+.workspace-content .settings-grid select,
+.workspace-content .three-column-form select { font-size: 18px; }
+.workspace-content .field-help,
+.workspace-content .field-aside { font-size: 18px; line-height: 1.6; }
+.workspace-content .file-drop strong,
+.workspace-content .file-compact strong { font-size: 22px; }
+.workspace-content .file-drop > span:nth-of-type(2),
+.workspace-content .file-compact small { font-size: 18px; line-height: 1.5; }
+.workspace-content .file-selection { font-size: 18px; }
+.workspace-content .settings-disclosure summary { font-size: 20px; }
+.workspace-content .settings-summary-note { font-size: 16px; }
+.workspace-content .check-option { font-size: 18px; }
+.workspace-content .check-option input { width: 18px; height: 18px; }
+.workspace-content .processing-consent { font-size: 18px; line-height: 1.65; }
+.workspace-content .processing-consent input { width: 20px; height: 20px; flex-basis: 20px; }
+.workspace-content .form-footnote { font-size: 18px; line-height: 1.6; }
+.workspace-content .form-footer .button { font-size: 18px; }
+.workspace-content .tool-picker-label,
+.workspace-content .tool-picker-strip span:not(.tool-picker-label) { font-size: 16px; }
+.workspace-content .tool-form-accent strong { font-size: 18px; }
+.workspace-content .tool-form-accent p,
+.workspace-content .tool-warning { font-size: 18px; line-height: 1.6; }
+.workspace-content .tool-accent-count { font-size: 15px; }
+.loading-panel strong { font-size: 18px; }
+.loading-panel p,
+.error-panel { font-size: 17px; line-height: 1.6; }
+.results-heading p,
+.history-save-status { font-size: 18px; line-height: 1.6; }
+.score-copy > p:not(.eyebrow),
+.score-details summary,
+.score-details ul { font-size: 18px; line-height: 1.65; }
+.metric-label,
+.metric-detail { font-size: 16px; line-height: 1.5; }
+.metric-value { font-size: 22px; }
+.result-section > p { font-size: 18px; line-height: 1.65; }
+.status-label { font-size: 16px; }
+.ats-issues,
+.keyword-list { font-size: 16px; line-height: 1.65; }
+.keyword-chip,
+.skill-priority { font-size: 14px; }
+.keyword-columns h4 { font-size: 18px; }
+.results-area .prose { font-size: 20px; line-height: 1.8; }
+.results-area .prose h2 { font-size: 28px; }
+.results-area .prose h3 { font-size: 24px; }
+.results-area .prose h4 { font-size: 21px; }
+.readability-card .muted { font-size: 16px; line-height: 1.65; }
+.readability-chip { font-size: 15px; }
+.parse-fields dt,
+.parse-fields dd,
+.parse-warnings { font-size: 18px; line-height: 1.65; }
+.extracted-preview summary { font-size: 18px; }
+.extracted-preview pre { font-size: 16px; line-height: 1.7; }
+.skill-evidence-item > strong,
+.skill-evidence-item p,
+.title-match-evidence,
+.keyword-basis { font-size: 18px; line-height: 1.65; }
+
+@media (max-width: 760px) {
+  .workspace-content .field-label { font-size: 20px; }
+  .workspace-content .form-field input[type="text"],
+  .workspace-content .form-field input[type="password"],
+  .workspace-content .form-field select,
+  .workspace-content .form-field textarea,
+  .workspace-content .settings-grid select,
+  .workspace-content .three-column-form select { font-size: 17px; }
+  .workspace-content .field-help,
+  .workspace-content .field-aside,
+  .workspace-content .file-drop > span:nth-of-type(2),
+  .workspace-content .file-compact small,
+  .workspace-content .form-footnote { font-size: 16px; }
+  .workspace-content .file-drop strong,
+  .workspace-content .file-compact strong { font-size: 20px; }
+  .workspace-content .processing-consent,
+  .workspace-content .check-option { font-size: 16px; }
+  .workspace-content .settings-disclosure summary { font-size: 18px; }
+  .workspace-content .settings-summary-note { font-size: 14px; }
+  .workspace-content .tool-warning,
+  .workspace-content .tool-form-accent p { font-size: 16px; }
+  .results-area .prose { font-size: 18px; }
+  .parse-fields dt,
+  .parse-fields dd,
+  .parse-warnings { font-size: 16px; }
+}
+
+@media (max-width: 480px) {
+  .workspace-content .field-label { font-size: 18px; }
+  .workspace-content .field-help,
+  .workspace-content .field-aside,
+  .workspace-content .file-drop > span:nth-of-type(2),
+  .workspace-content .file-compact small,
+  .workspace-content .file-selection,
+  .workspace-content .form-footnote { font-size: 15px; }
+  .workspace-content .file-drop strong,
+  .workspace-content .file-compact strong { font-size: 18px; }
+  .workspace-content .processing-consent,
+  .workspace-content .check-option { font-size: 15px; }
+  .workspace-content .form-footer .button { font-size: 17px; }
+  .results-area .prose { font-size: 16px; }
+  .results-area .prose h2 { font-size: 23px; }
+  .results-area .prose h3 { font-size: 20px; }
+  .results-area .prose h4 { font-size: 18px; }
+  .readability-card .muted,
+  .parse-fields dt,
+  .parse-fields dd,
+  .parse-warnings,
+  .keyword-basis,
+  .skill-evidence-item p { font-size: 14px; }
+}
+
 @media (max-width: 480px) {
   .brand-copy strong { font-size: 14px; }
   .nav-tab { font-size: 9px; }
