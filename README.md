@@ -16,7 +16,7 @@ The resume score and ATS checks are product heuristics. They do not simulate an 
 
 ## Set up Auth0 sign-in
 
-The app uses Auth0 Universal Login for Google sign-in and passwordless email verification. Create an Auth0 **Regular Web Application**, enable the `google-oauth2` social connection for that application, and enable the passwordless **Email** connection with one-time verification codes for that application. The email connection supports new and returning users.
+The app uses Auth0 Universal Login for Google sign-in. Create an Auth0 **Regular Web Application** and enable the `google-oauth2` social connection for that application. The app only accepts Google identities with verified email addresses.
 
 In the Auth0 application's settings, add these local URLs:
 
@@ -24,7 +24,9 @@ In the Auth0 application's settings, add these local URLs:
 - Allowed Logout URL: `http://127.0.0.1:5000/login`
 - Allowed Web Origin: `http://127.0.0.1:5000`
 
-Auth0's built-in Google credentials and email sender are suitable for initial testing. Before opening the app to real users, configure your own Google OAuth credentials and a production email provider (SMTP) in Auth0; the built-in email sender is intended for testing.
+Auth0's built-in Google credentials are suitable for initial testing. Before opening the app to real users, configure your own Google OAuth credentials in Auth0.
+
+The app favicon is served at `/static/favicon.svg`. To show it in Auth0's hosted Universal Login browser tab, after deploying, use the Auth0 Management API to `PATCH https://<your-auth0-domain>/api/v2/branding` with `{"favicon_url":"https://<your-service>.onrender.com/static/favicon.svg"}` and a token with the `update:branding` scope. Auth0 currently exposes the hosted-login favicon through this Branding API setting.
 
 ## Run locally
 

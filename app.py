@@ -99,7 +99,7 @@ def api_error(message, status):
 @app.before_request
 def protect_routes_and_posts():
     public_endpoints = {
-        "health", "login", "login_google", "login_email", "auth0_callback", "static",
+        "health", "login", "login_google", "auth0_callback", "static",
     }
     if request.endpoint not in public_endpoints and not session.get("auth_user"):
         if request.path.startswith("/api/"):
@@ -207,21 +207,12 @@ def login():
     )
 
 
-def start_auth0_login(connection):
+@app.get("/login/google")
+def login_google():
     if not auth0:
         flash("Sign-in is not configured yet. Add the Auth0 settings before continuing.", "error")
         return redirect(url_for("login"))
-    return auth0.authorize_redirect(AUTH0_CALLBACK_URL, connection=connection)
-
-
-@app.get("/login/google")
-def login_google():
-    return start_auth0_login("google-oauth2")
-
-
-@app.get("/login/email")
-def login_email():
-    return start_auth0_login("email")
+    return auth0.authorize_redirect(AUTH0_CALLBACK_URL, connection="google-oauth2")
 
 
 @app.get("/auth/callback")
@@ -232,11 +223,14 @@ def auth0_callback():
     try:
         token = auth0.authorize_access_token()
         userinfo = token.get("userinfo") or {}
-        if not userinfo.get("sub") or not userinfo.get("email") or userinfo.get("email_verified") is not True:
+        subject = userinfo.get("sub", "")
+        if not subject.startswith("google-oauth2|"):
+            raise ValueError("Only Google sign-in is accepted.")
+        if not userinfo.get("email") or userinfo.get("email_verified") is not True:
             raise ValueError("Auth0 did not return a verified email address.")
         session.clear()
         session["auth_user"] = {
-            "sub": userinfo["sub"],
+            "sub": subject,
             "email": userinfo["email"],
             "name": userinfo.get("name") or userinfo["email"],
         }

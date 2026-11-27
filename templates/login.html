@@ -6,6 +6,7 @@
   <meta name="csrf-token" content="{{ csrf_token }}">
   <meta name="theme-color" content="#f4f3ee">
   <title>Sign in · Resume Analyzer</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body class="login-page">
@@ -18,14 +19,13 @@
     <section class="login-card surface">
       <p class="eyebrow">Private workspace</p>
       <h1>Welcome to your workspace.</h1>
-      <p class="muted">Sign in with Google or verify your email to continue.</p>
+      <p class="muted">Sign in with your Google account to continue.</p>
       {% for error in errors %}<div class="error-panel login-error" role="alert">{{ error }}</div>{% endfor %}
       {% if auth0_configured %}
       <div class="login-actions">
         <a class="button button-dark" href="{{ url_for('login_google') }}">Continue with Google <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></a>
-        <a class="button button-secondary" href="{{ url_for('login_email') }}">Continue with email <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></a>
       </div>
-      <p class="field-help">For email sign-in, Auth0 will send a one-time verification code. You can also choose Google sign-in.</p>
+      <p class="field-help">Your account is verified securely by Google. No separate workspace password is needed.</p>
       {% else %}
       <div class="error-panel login-error" role="status">Auth0 is not configured yet. Add the Auth0 settings from the setup guide to enable sign-in.</div>
       {% endif %}
