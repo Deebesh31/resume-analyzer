@@ -1,16 +1,17 @@
-# Resume Analyzer
+# ResuMate
 
-A private Flask web app for reviewing resumes, comparing a resume with a job description, drafting cover letters, and using focused writing tools. The app runs locally or as a Python web service on Render.
+ResuMate is a Flask web app for reviewing resumes, comparing a resume with a job description, drafting cover letters, and using focused writing tools. It runs locally or as a Python web service on Render.
 
 ## Features
 
 - Resume analysis for PDF and TXT files
-- Existing heuristic resume score, text-based ATS checks, resume statistics, and AI feedback
+- Existing heuristic resume score, text-based ATS checks, resume statistics, and automated feedback
 - Resume-to-job-description match review and optional simple keyword overlap
 - Cover-letter drafts in five tones
 - Action verb, achievement wording, bullet point, section order, and interview preparation tools
 - In-session analysis history and comparison
-- Gemini model fallback from `gemini-3.8-flash` to `gemini-3.5-flash-lite`
+- Google account menu with live remaining usage for the current session
+- Google Gemini model fallback from `gemini-3.8-flash` to `gemini-3.5-flash-lite`
 
 The resume score and ATS checks are product heuristics. They do not simulate an employer's ATS or predict hiring outcomes.
 
@@ -69,12 +70,12 @@ The repository includes [`render.yaml`](render.yaml) for a Python web service. R
 7. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration. If the service still has the old `APP_PASSWORD` variable, remove it; this app no longer uses it.
 8. Wait for the service health check at `/health` and open its Render URL.
 
-The Render configuration selects the free web-service plan. Gemini API usage is separate and may incur charges. Each authenticated browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small private workspace; they are not a substitute for account-based quotas on a public multi-user product.
+The Render configuration selects the free web-service plan. Google Gemini usage is separate and may incur charges. Each authenticated browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small project; they are not a substitute for account-based quotas on a public multi-user product.
 
 ## Data handling
 
 - Resume uploads accept PDF and TXT files up to 20 MB. The request cap includes multipart form overhead.
-- Resume text and job descriptions are sent from the server to the configured Google Gemini API when the user requests AI feedback.
+- Resume text and job descriptions are sent from the server to the configured Google Gemini service when the user requests a review.
 - This project has no database or resume library. It does not intentionally persist uploads or reports; analysis history stays in the open browser tab and disappears when it is refreshed or closed.
 - The app does not log resume content. Do not upload sensitive information unless you are comfortable with the configured Gemini provider's data handling terms.
 - Use Render environment variables for secrets. Do not commit `.env` or share `GEMINI_API_KEY`.
@@ -83,7 +84,7 @@ The Render configuration selects the free web-service plan. Gemini API usage is 
 
 ```text
 app.py                 Flask routes, sign-in, CSRF, session quotas
-resume_service.py      PDF/TXT parsing, existing scoring and Gemini workflows
+resume_service.py      PDF/TXT parsing, existing scoring and Google Gemini workflows
 main.py                Local development entry point
 templates/             Flask HTML templates
 static/                Responsive CSS and browser interactions

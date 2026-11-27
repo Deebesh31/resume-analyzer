@@ -254,7 +254,7 @@ Please provide structured feedback in this format:
 ## Next Steps
 [Immediate actions to take]
 
-Be specific, constructive, and actionable. Use plain Markdown headings without emojis or decorative symbols."""
+Write as a ResuMate review. Be specific, constructive, and actionable. Do not mention the underlying model or process. Use plain Markdown headings without emojis or decorative symbols."""
 
 
 def build_match_prompt(resume_text, job_description):
@@ -283,7 +283,7 @@ Provide analysis in this format:
 ## Application Strategy
 [Tips for applying to this role]
 
-Use plain Markdown headings without emojis or decorative symbols."""
+Write as a ResuMate review. Do not mention the underlying model or process. Use plain Markdown headings without emojis or decorative symbols."""
 
 
 def build_cover_letter_prompt(resume_text, job_description, company, role, tone):
@@ -307,7 +307,7 @@ Create a compelling cover letter that:
 5. Includes a clear call to action
 6. Maintains {tone.lower()} tone throughout
 
-Format it as a complete cover letter ready to send. Do not include emojis or decorative symbols."""
+Format it as a complete cover letter ready to send. Do not describe the writing process or include emojis or decorative symbols."""
 
 
 def build_tool_prompt(tool_name, text, target_industry="", target_role=""):
@@ -383,7 +383,7 @@ Format each as:
     }
     if tool_name not in prompts:
         raise ValueError("Choose one of the available resume tools.")
-    return f"{prompts[tool_name]}\n\nDo not include emojis or decorative symbols in your response."
+    return f"{prompts[tool_name]}\n\nDo not mention the underlying model or process. Do not include emojis or decorative symbols in your response."
 
 
 def analyze_resume(file_name, file_bytes, analysis_mode="Standard Analysis", focus_areas=None,
@@ -450,7 +450,7 @@ def generate_tool_output(tool_name, text, file_name=None, file_bytes=None,
 def generate_text_report(analysis_text, stats, score):
     return f"""
 ===========================================
-AI RESUME ANALYZER PRO - ANALYSIS REPORT
+RESUMATE - RESUME REVIEW
 ===========================================
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
@@ -469,5 +469,5 @@ DETAILED ANALYSIS:
 {analysis_text}
 
 ===========================================
-Copyright 2025 AI Resume Analyzer Pro. All rights reserved.
+ResuMate can make mistakes. Verify the review before using it.
 """

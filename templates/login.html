@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <meta name="theme-color" content="#f4f3ee">
-  <title>Sign in · Resume Analyzer</title>
+  <title>Sign in · ResuMate</title>
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
 <body class="login-page">
   <a class="skip-link" href="#login-main">Skip to sign in</a>
   <main class="login-wrap" id="login-main">
-    <a class="brand login-brand" href="{{ url_for('login') }}" aria-label="Resume Analyzer">
+    <a class="brand login-brand" href="{{ url_for('login') }}" aria-label="ResuMate">
       <span class="brand-mark" aria-hidden="true">R</span>
-      <span class="brand-copy"><strong>Resume Analyzer</strong><small>Career clarity workspace</small></span>
+      <span class="brand-copy"><strong>ResuMate</strong><small>Career clarity workspace</small></span>
     </a>
     <section class="login-card surface">
-      <p class="eyebrow">Private workspace</p>
+      <p class="eyebrow">SIGN IN</p>
       <h1>Welcome to your workspace.</h1>
       <p class="muted">Sign in with your Google account to continue.</p>
       {% for error in errors %}<div class="error-panel login-error" role="alert">{{ error }}</div>{% endfor %}

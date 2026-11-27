@@ -3,21 +3,31 @@
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
 const historyEntries = [];
 const downloads = { analysis: "", fullReport: "", match: "", letter: "", tool: "" };
+let activeView = "home";
 
-function activateView(name, moveFocus = false) {
-  document.querySelectorAll("[data-view]").forEach((tab) => {
+function syncNavigation(name = activeView) {
+  const tabs = [...document.querySelectorAll("[data-view]")];
+  const homeTabVisible = tabs.some((tab) => tab.dataset.view === "home" && tab.getClientRects().length > 0);
+  const fallbackTab = name === "home" && !homeTabVisible ? tabs.find((tab) => tab.dataset.view === "analyze") : null;
+  tabs.forEach((tab) => {
     const active = tab.dataset.view === name;
     tab.classList.toggle("is-active", active);
     if (active) tab.setAttribute("aria-current", "page");
     else tab.removeAttribute("aria-current");
-    tab.tabIndex = active || name === "home" ? 0 : -1;
-    if (active && moveFocus) tab.focus();
+    tab.tabIndex = active || tab === fallbackTab ? 0 : -1;
   });
+}
+
+function activateView(name, moveFocus = false) {
+  activeView = name;
+  syncNavigation(name);
+  if (moveFocus) document.querySelector(`[data-view="${name}"]`)?.focus();
   document.querySelectorAll("[data-view-panel]").forEach((panel) => {
     const active = panel.dataset.viewPanel === name;
     panel.hidden = !active;
     panel.classList.toggle("is-visible", active);
   });
+  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
   if (name === "history") renderHistory();
   if (name !== "home") selectEngineCapability(name, false);
   else selectEngineCapability(activeCapability, true);
@@ -29,13 +39,16 @@ document.querySelectorAll("[data-view]").forEach((tab) => {
   tab.addEventListener("keydown", (event) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
-    const tabs = [...document.querySelectorAll("[data-view]")];
+    const tabs = [...document.querySelectorAll("[data-view]")].filter((candidate) => candidate.getClientRects().length > 0);
     const current = tabs.indexOf(tab);
+    if (current < 0 || !tabs.length) return;
     const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 :
       (current + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length;
     activateView(tabs[next].dataset.view, true);
   });
 });
+syncNavigation();
+window.addEventListener("resize", () => syncNavigation());
 
 document.querySelectorAll("[data-switch-view]").forEach((button) => {
   button.addEventListener("click", (event) => {
@@ -159,10 +172,35 @@ function updateUsage(usage) {
     cover_letter: "usage-letter",
   };
   Object.entries(targets).forEach(([key, id]) => {
+    if (!Object.hasOwn(usage, key)) return;
     const element = document.getElementById(id);
-    if (element && Object.hasOwn(usage, key)) element.textContent = usage[key];
+    if (element) element.textContent = usage[key];
+    document.querySelectorAll(`[data-account-usage="${key}"]`).forEach((counter) => {
+      counter.textContent = usage[key];
+    });
   });
 }
+
+const accountControl = document.querySelector("[data-account-control]");
+const accountTrigger = document.querySelector("[data-account-trigger]");
+const accountPopover = document.querySelector("[data-account-popover]");
+function setAccountPopoverOpen(open) {
+  if (!accountTrigger || !accountPopover) return;
+  accountTrigger.setAttribute("aria-expanded", String(open));
+  accountPopover.hidden = !open;
+}
+accountTrigger?.addEventListener("click", () => {
+  setAccountPopoverOpen(accountTrigger.getAttribute("aria-expanded") !== "true");
+});
+document.addEventListener("click", (event) => {
+  if (accountControl && !accountControl.contains(event.target)) setAccountPopoverOpen(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && accountTrigger?.getAttribute("aria-expanded") === "true") {
+    setAccountPopoverOpen(false);
+    accountTrigger.focus();
+  }
+});
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -614,7 +652,7 @@ function updateToolFields() {
   quantifierWarning.hidden = selected !== "Achievement Quantifier";
   const labels = {
     "Action Verb Replacer": ["Resume bullet points", "Review each suggestion and keep the underlying experience accurate."],
-    "Achievement Quantifier": ["Achievements to improve", "AI may suggest illustrative numbers; replace them with verified results."],
+    "Achievement Quantifier": ["Achievements to improve", "Suggestions may include illustrative numbers; replace them with verified results."],
     "Bullet Point Improver": ["Resume bullet points", "Review every rewrite to make sure it reflects your actual work."],
     "Section Reorganizer": ["Current resume sections", "Enter your current section names, one per line."],
   };

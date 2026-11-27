@@ -1,4 +1,4 @@
-"""Flask web application for the Resume Analyzer."""
+"""Flask web application for ResuMate."""
 
 import hmac
 import os
@@ -131,7 +131,11 @@ def add_security_headers(response):
 
 @app.context_processor
 def inject_auth_user():
-    return {"auth_user": session.get("auth_user")}
+    auth_user = session.get("auth_user")
+    return {
+        "auth_user": auth_user,
+        "account_usage": remaining_usage() if auth_user else {},
+    }
 
 
 def consume_feature_request(feature):

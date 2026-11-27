@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#f4f3ee">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <meta name="color-scheme" content="light">
-  <title>{% block title %}Resume Analyzer · Career clarity workspace{% endblock %}</title>
+  <title>{% block title %}ResuMate · Career clarity workspace{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
   <script src="{{ url_for('static', filename='vendor/gsap.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='vendor/Flip.min.js') }}" defer></script>
@@ -17,11 +17,12 @@
   <a class="skip-link" href="#main-content">Skip to content</a>
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="#view-home" data-switch-view="home" aria-label="Resume Analyzer overview">
+      <a class="brand" href="#view-home" data-switch-view="home" aria-label="ResuMate home">
         <span class="brand-mark" aria-hidden="true"><span>R</span><i></i></span>
-        <span class="brand-copy"><strong>Resume Analyzer</strong><small>Career clarity workspace</small></span>
+        <span class="brand-copy"><strong>ResuMate</strong><small>Career clarity workspace</small></span>
       </a>
       <nav class="main-nav" aria-label="Workspace">
+        <button class="nav-tab mobile-home-tab is-active" type="button" data-view="home" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5h-6v-6h-5v6h-6z"/></svg><span>Home</span></button>
         <button class="nav-tab" type="button" data-view="analyze">Analyze</button>
         <button class="nav-tab" type="button" data-view="match">Job match</button>
         <button class="nav-tab" type="button" data-view="letter">Cover letter</button>
@@ -29,19 +30,41 @@
         <button class="nav-tab" type="button" data-view="tools">Resume tools</button>
       </nav>
       <div class="topbar-actions">
-        <span class="workspace-presence"><i aria-hidden="true"></i> Private workspace</span>
         {% if auth_user %}
-        <form action="{{ url_for('logout') }}" method="post" class="logout-form">
-          <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-          <button class="signout-button" type="submit" aria-label="Sign out {{ auth_user.email }}">Sign out <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></button>
-        </form>
+        {% set account_name = auth_user.name or auth_user.email %}
+        {% set account_name_parts = account_name.split() %}
+        <div class="account-control" data-account-control>
+          <button class="account-trigger" type="button" data-account-trigger aria-expanded="false" aria-controls="account-popover" aria-label="Open account menu">
+            <span class="account-avatar" aria-hidden="true">{% if account_name_parts|length > 1 %}{{ account_name_parts[0][0]|upper }}{{ account_name_parts[-1][0]|upper }}{% elif account_name_parts %}{{ account_name_parts[0][0]|upper }}{% else %}U{% endif %}</span>
+            <span class="account-trigger-copy"><strong>{{ account_name }}</strong><small>{{ auth_user.email }}</small></span>
+            <img class="account-chevron" src="{{ url_for('static', filename='icons/arrow-down.svg') }}" alt="" aria-hidden="true">
+          </button>
+          <section class="account-popover" id="account-popover" data-account-popover hidden aria-label="Account and usage">
+            <div class="account-popover-identity">
+              <span class="account-avatar account-avatar-large" aria-hidden="true">{% if account_name_parts|length > 1 %}{{ account_name_parts[0][0]|upper }}{{ account_name_parts[-1][0]|upper }}{% elif account_name_parts %}{{ account_name_parts[0][0]|upper }}{% else %}U{% endif %}</span>
+              <span><strong>{{ account_name }}</strong><small>{{ auth_user.email }}</small></span>
+            </div>
+            <div class="account-popover-rule"></div>
+            <div class="account-usage-heading"><strong>Usage</strong><span>This session</span></div>
+            <div class="account-usage-list" aria-label="Remaining requests this session">
+              <div class="account-usage-row"><span>Resume analyses</span><strong><span data-account-usage="resume_analysis">{{ account_usage.get('resume_analysis', 3) }}</span> of 3 left</strong></div>
+              <div class="account-usage-row"><span>Job matches</span><strong><span data-account-usage="job_match">{{ account_usage.get('job_match', 3) }}</span> of 3 left</strong></div>
+              <div class="account-usage-row"><span>Cover letters</span><strong><span data-account-usage="cover_letter">{{ account_usage.get('cover_letter', 3) }}</span> of 3 left</strong></div>
+            </div>
+            <p class="account-usage-note">Usage resets when you sign out.</p>
+            <form action="{{ url_for('logout') }}" method="post" class="account-logout-form">
+              <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+              <button class="account-logout-button" type="submit">Sign out</button>
+            </form>
+          </section>
+        </div>
         {% endif %}
       </div>
     </div>
   </header>
   <main id="main-content" class="page-shell">
     {% block content %}{% endblock %}
-    <footer class="footer-note"><span class="footer-mark" aria-hidden="true">R</span><span>Resume Analyzer</span><span class="footer-dot">·</span><span>AI feedback is advisory. Verify details before using them.</span></footer>
+    <footer class="footer-note"><span class="footer-mark" aria-hidden="true">R</span><span>ResuMate</span><span class="footer-dot">·</span><span>ResuMate can make mistakes. Verify suggestions before using them.</span></footer>
   </main>
 </body>
 </html>
