@@ -320,7 +320,8 @@ function describeReadability(readability, label, summary, chips) {
   if (!readability) return;
   document.getElementById(label).textContent = readability.status;
   const pageText = readability.page_count ? `${readability.page_count} page${readability.page_count === 1 ? "" : "s"}` : "page count unavailable";
-  document.getElementById(summary).textContent = `${readability.format} · ${pageText} · ${readability.word_count} words extracted · ${readability.parser || "Basic document checks"}.`;
+  const qualityText = readability.quality_band ? ` · Affinda extraction quality: ${readability.quality_band}` : "";
+  document.getElementById(summary).textContent = `${readability.format} · ${pageText} · ${readability.word_count} words extracted · ${readability.parser || "Basic document checks"}${qualityText}.`;
   fillChips(document.getElementById(chips), readability.sections, "No common section headings recognized");
 }
 
@@ -594,7 +595,7 @@ function renderMatchReadability(readability) {
   if (!readability) return;
   document.getElementById("match-readability-status").textContent = readability.status;
   fillChips(document.getElementById("match-readability-details"), [
-    `${readability.format} · ${readability.word_count} words extracted · ${readability.parser || "Basic document checks"}`,
+    `${readability.format} · ${readability.word_count} words extracted · ${readability.parser || "Basic document checks"}${readability.quality_band ? ` · ${readability.quality_band} extraction` : ""}`,
     ...(readability.sections || []).map((sectionName) => sectionName.replaceAll("_", " ")),
   ], "No common section headings recognized");
   const warnings = document.getElementById("match-readability-warnings");

@@ -9,6 +9,12 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
+      - key: AFFINDA_API_KEY
+        sync: false
+      - key: AFFINDA_API_BASE_URL
+        value: https://resume-parser.affinda.com
+      - key: AFFINDA_ORGANIZATION_ID
+        sync: false
       - key: AUTH0_DOMAIN
         sync: false
       - key: AUTH0_CLIENT_ID

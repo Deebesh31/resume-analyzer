@@ -4,7 +4,7 @@ ResuMate is a Flask web app for reviewing resumes, comparing a resume with a job
 
 ## Features
 
-- Resume analysis for PDF, DOCX, and TXT files
+- Resume analysis for PDF, Word, OpenDocument, RTF, text, and common image files
 - Document extraction review with entity extraction, section headings, date ranges, and layout warnings
 - Resume-to-job-description comparison with recognized skill phrases, priority weighting, and matching text evidence
 - Descriptive resume statistics and actionable written feedback
@@ -14,7 +14,7 @@ ResuMate is a Flask web app for reviewing resumes, comparing a resume with a job
 - Google account menu with live remaining usage for the current session
 - Google Gemini model fallback from `gemini-3.8-flash` to `gemini-3.5-flash-lite`
 
-ResuMate does not produce a general resume score or simulate an employer's applicant tracking system. Skill coverage is calculated only from a maintained list of recognized phrases in the pasted job description; it is not a hiring prediction or a complete interpretation of every requirement. Text extraction, entity labels, and layout warnings are best-effort checks and can miss content or formatting problems. Scanned PDFs without selectable text are not supported; export them as a text-based PDF or DOCX first.
+ResuMate does not produce a general resume score or simulate an employer's applicant tracking system. Skill coverage is calculated only from a maintained list of recognized phrases in the pasted job description; it is not a hiring prediction or a complete interpretation of every requirement. Affinda's extraction quality and structured fields are best-effort results and can miss content or formatting problems. Scanned PDFs and images are sent through Affinda's OCR, which processes up to three scanned pages.
 
 ## Set up Auth0 sign-in
 
@@ -32,7 +32,7 @@ The app favicon is served at `/static/favicon.svg`. To show it in Auth0's hosted
 
 ## Run locally
 
-Requirements: Python 3.11 or later, a Gemini API key, and an Auth0 application configured as above.
+Requirements: Python 3.11 or later, a Gemini API key, an Affinda Resume Parser API key, and an Auth0 application configured as above.
 
 ```powershell
 py -m venv .venv
@@ -46,6 +46,8 @@ Set these values in `.env`:
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key
+AFFINDA_API_KEY=your_affinda_api_key
+AFFINDA_API_BASE_URL=https://resume-parser.affinda.com
 FLASK_SECRET_KEY=replace_with_a_random_secret
 AUTH0_DOMAIN=your-tenant.region.auth0.com
 AUTH0_CLIENT_ID=your_auth0_application_client_id
@@ -54,7 +56,7 @@ AUTH0_CALLBACK_URL=http://127.0.0.1:5000/auth/callback
 AUTH0_LOGOUT_RETURN_URL=http://127.0.0.1:5000/login
 ```
 
-`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` come from the Auth0 application settings. `AUTH0_CALLBACK_URL` and `AUTH0_LOGOUT_RETURN_URL` must exactly match the URLs allowed in Auth0. `FLASK_SECRET_KEY` signs the session cookie; keep it secret and use a different value in each environment. Never commit `.env` or put secrets in source files.
+`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` come from the Auth0 application settings. `AUTH0_CALLBACK_URL` and `AUTH0_LOGOUT_RETURN_URL` must exactly match the URLs allowed in Auth0. Create an Affinda Resume Parser account in one region and make an API key in that region's console. Set `AFFINDA_API_BASE_URL` to the matching regional host; the example uses Asia Pacific. If your Affinda account has multiple Resume Parser organizations, also set `AFFINDA_ORGANIZATION_ID`. `FLASK_SECRET_KEY` signs the session cookie; keep it secret and use a different value in each environment. Never commit `.env` or put secrets in source files.
 
 After saving `.env`, start the app with `py main.py`, then open `http://127.0.0.1:5000`.
 
@@ -65,31 +67,30 @@ The repository includes [`render.yaml`](render.yaml) for a Python web service. R
 1. Push this repository to a Git provider and connect it in Render.
 2. Create a Blueprint from the repository so Render reads `render.yaml`.
 3. If you already created a Render web service manually, update its Start Command under **Settings → Build & Deploy** to `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120`; otherwise it may keep using an old Streamlit command.
-4. Add `GEMINI_API_KEY`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` in Render's environment settings. Keep secrets private.
-5. Set `AUTH0_CALLBACK_URL` to `https://<your-service>.onrender.com/auth/callback` and `AUTH0_LOGOUT_RETURN_URL` to `https://<your-service>.onrender.com/login`.
-6. Add those exact callback and logout URLs, plus `https://<your-service>.onrender.com` as an Allowed Web Origin, to the Auth0 application settings. Use your custom domain if you have one.
-7. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration. If the service still has the old `APP_PASSWORD` variable, remove it; this app no longer uses it.
-8. Wait for the service health check at `/health` and open its Render URL.
+4. In the Affinda console, choose a region, create a Resume Parser API key, and copy the key while it is shown. Add it to Render as `AFFINDA_API_KEY`. The Blueprint sets `AFFINDA_API_BASE_URL` to Asia Pacific by default; change it to the same region where you created your key if needed. Add `AFFINDA_ORGANIZATION_ID` only if Affinda requires it for your account.
+5. Add `GEMINI_API_KEY`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` in Render's environment settings. Keep secrets private.
+6. Set `AUTH0_CALLBACK_URL` to `https://<your-service>.onrender.com/auth/callback` and `AUTH0_LOGOUT_RETURN_URL` to `https://<your-service>.onrender.com/login`.
+7. Add those exact callback and logout URLs, plus `https://<your-service>.onrender.com` as an Allowed Web Origin, to the Auth0 application settings. Use your custom domain if you have one.
+8. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration. If the service still has the old `APP_PASSWORD` variable, remove it; this app no longer uses it.
+9. Wait for the service health check at `/health` and open its Render URL.
 
 The Render configuration selects the free web-service plan. Google Gemini usage is separate and may incur charges. Each authenticated browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small project; they are not a substitute for account-based quotas on a public multi-user product.
 
 ## Data handling
 
-- Resume uploads accept PDF, DOCX, and TXT files up to 20 MB. The request cap includes multipart form overhead.
-- PDF parsing uses PyMuPDF and DOCX parsing uses python-docx. PDF text is ordered using page coordinates and a column-aware reading-order heuristic. A local English token-classification model identifies likely names, contact details, titles, employers, qualifications, institutions, skills, certifications, and languages. Its quantized ONNX weights and tokenizer are downloaded lazily from Hugging Face on the first parse and cached by the service. Resume text is processed locally by this parser; it is not sent to Hugging Face. If the model cannot be loaded, ResuMate falls back to basic contact and section checks and shows a notice. Scanned PDFs still require OCR before upload; columns, tables, header/footer content, and image text can be misread.
+- Resume uploads accept PDF, Word, OpenDocument, RTF, plain text, and common image formats up to 20 MB. The request cap includes multipart form overhead.
+- Resume files are sent from the server to the Affinda Resume Parser API at `AFFINDA_API_BASE_URL`. Affinda documents that its cloud parser does not store the file or parse result; parsing happens in the region associated with the API host. One credit is charged per successful parse. Affinda returns structured JSON for names, contact details, work history, education, certifications, skills, languages, and document extraction quality. Its OCR handles scanned files; only the first three scanned pages are OCR-processed, and only the first 20 pages contribute fields. See [Affinda's quickstart](https://resume-parser.affinda.com/docs/quickstart), [regional hosts](https://resume-parser.affinda.com/docs/regions), and [response schema](https://resume-parser.affinda.com/docs/response-schema).
 - Job matching compares a curated list of skill phrases with the extracted resume text. Required phrases count 3, unprioritized phrases 2, and preferred phrases 1; the coverage percentage applies only to recognized phrases. An optional job-title check is exact-phrase only. Education checks compare degree level but not field of study, and years-of-experience requirements are surfaced for manual comparison. The report shows evidence excerpts so the user can check each match. Terms outside the current phrase list are not included in that percentage.
-- Research basis: [Yu et al. (ACL 2005)](https://aclanthology.org/P05-1062/) segment resumes before extracting detailed fields; [Wei et al. (SIGIR 2020)](https://arxiv.org/abs/2005.11017) show how document layout cues can improve extraction; and [Retyk et al. (HR@RecSys 2023)](https://arxiv.org/abs/2309.07015) study joint section/line and entity/token labeling. ResuMate applies these ideas as coordinate-based PDF reading order, rule-based section headings, and token-level entity extraction; it does not reproduce the full research architectures. The Retyk paper's public companion repository contains feature descriptions, not a ready-to-run trained parser. The [resume NER checkpoint](https://huggingface.co/oksomu/resume-ner) used here is a separate community model licensed under Apache 2.0, pinned in [resume_parser.py](resume_parser.py) to a specific revision. Its model-card benchmark is not an independent evaluation of ResuMate. Before making accuracy claims, evaluate it against a consented, representative set of resumes from the intended users.
-- Resume text and job descriptions are sent from the server to the configured Google Gemini service when the user requests a review.
+- Extracted resume text and job descriptions are sent from the server to the configured Google Gemini service when the user requests feedback. Files go to Affinda for parsing; text goes to Google Gemini for feedback. Review both providers' data handling terms before uploading sensitive information.
 - This project has no database or resume library. It does not intentionally persist uploads or reports; analysis history stays in the open browser tab and disappears when it is refreshed or closed.
-- The app does not log resume content. Do not upload sensitive information unless you are comfortable with the configured Gemini provider's data handling terms.
+- The app does not log resume content. Do not upload sensitive information unless you are comfortable with Affinda's and the configured Google Gemini provider's data handling terms.
 - Use Render environment variables for secrets. Do not commit `.env` or share `GEMINI_API_KEY`.
 
 ## Project structure
 
 ```text
 app.py                 Flask routes, sign-in, CSRF, session quotas
-resume_service.py      PDF/DOCX/TXT extraction, layout checks, requirement matching, and Google Gemini workflows
-resume_parser.py       Local resume entity extraction with a pinned quantized ONNX model
+resume_service.py      Affinda parsing, structured field mapping, requirement matching, and Google Gemini workflows
 main.py                Local development entry point
 templates/             Flask HTML templates
 static/                Responsive CSS and browser interactions

@@ -1,21 +1,15 @@
 """Resume analysis operations shared by the web routes."""
 
-import io
 import json
+import mimetypes
 import os
 import re
+import time
 import unicodedata
 from datetime import datetime
 
-import fitz
-from docx import Document
-from docx.oxml.table import CT_Tbl
-from docx.oxml.text.paragraph import CT_P
-from docx.table import Table
-from docx.text.paragraph import Paragraph
 from google import genai
-
-from resume_parser import ResumeParserUnavailable, extract_resume_entities
+import requests
 
 
 GEMINI_MODELS = ("gemini-3.8-flash", "gemini-3.5-flash-lite")
@@ -42,6 +36,12 @@ TOOLS = (
 
 class GeminiConfigurationError(RuntimeError):
     pass
+
+
+class AffindaParserError(RuntimeError):
+    def __init__(self, message, status_code=502):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 def generate_gemini_content(contents):
@@ -78,90 +78,12 @@ def _normalise_heading(value):
     return re.sub(r"[^a-z0-9 ]", "", value.lower()).strip()
 
 
-def _iter_docx_blocks(document):
-    for child in document.element.body.iterchildren():
-        if isinstance(child, CT_P):
-            yield Paragraph(child, document)
-        elif isinstance(child, CT_Tbl):
-            yield Table(child, document)
-
-
-def _pdf_reading_order(blocks, page_width):
-    """Read PDF text blocks in a column-aware order while retaining page geometry."""
-    text_blocks = [
-        block for block in blocks
-        if len(block) > 6 and block[6] == 0 and block[4].strip()
-    ]
-    if not text_blocks:
-        return ""
-
-    ordered = sorted(text_blocks, key=lambda block: (block[1], block[0]))
-    left = [block for block in ordered if block[2] <= page_width * 0.48]
-    right = [block for block in ordered if block[0] >= page_width * 0.52]
-    has_columns = any(
-        max(a[1], b[1]) < min(a[3], b[3]) + 18
-        for a in left for b in right
-    )
-    if not has_columns:
-        return "\n".join(block[4].strip() for block in ordered)
-
-    spanning = [
-        block for block in ordered
-        if block[2] - block[0] >= page_width * 0.62
-    ]
-    if not spanning:
-        spanning = []
-
-    result = []
-    band_start = float("-inf")
-    for anchor in [*spanning, None]:
-        band_end = anchor[1] if anchor is not None else float("inf")
-        band = [
-            block for block in ordered
-            if block not in spanning and block[1] >= band_start and block[1] < band_end
-        ]
-        band_left = [block for block in band if block[2] <= page_width * 0.5]
-        band_right = [block for block in band if block[0] >= page_width * 0.5]
-        overlapping_columns = any(
-            max(a[1], b[1]) < min(a[3], b[3]) + 18
-            for a in band_left for b in band_right
-        )
-        if overlapping_columns:
-            band_order = sorted(band_left, key=lambda block: (block[1], block[0]))
-            band_order += sorted(band_right, key=lambda block: (block[1], block[0]))
-            assigned = {id(block) for block in band_order}
-            band_order += sorted(
-                (block for block in band if id(block) not in assigned),
-                key=lambda block: (block[1], block[0]),
-            )
-        else:
-            band_order = sorted(band, key=lambda block: (block[1], block[0]))
-        result.extend(block[4].strip() for block in band_order)
-        if anchor is not None:
-            result.append(anchor[4].strip())
-            band_start = anchor[3]
-
-    return "\n".join(value for value in result if value)
-
-
-def _document_profile(text):
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    emails = list(dict.fromkeys(re.findall(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", text)))
-    links = list(dict.fromkeys(re.findall(
-        r"\b(?:https?://|www\.)[^\s<>]+|\b(?:linkedin\.com/(?:in|company)/|github\.com/)[^\s<>]+",
-        text,
-        flags=re.I,
-    )))
-    locations = list(dict.fromkeys(re.findall(r"(?im)^\s*(?:location|based in|address)\s*[:\-]\s*([^\n]{2,80})", text)))
-    phones = []
-    for candidate in re.findall(r"(?<![\w])\+?\d[\d\s()./-]{5,}\d(?![\w])", text):
-        digit_count = len(re.sub(r"\D", "", candidate))
-        if 7 <= digit_count <= 15 and not re.fullmatch(r"\s*(?:19|20)\d{2}\s*[-–—]\s*(?:19|20)\d{2}\s*", candidate):
-            phones.append(re.sub(r"\s+", " ", candidate).strip())
-    phones = list(dict.fromkeys(phones))
-
+def _document_sections_and_dates(text):
     sections = []
-    for line in lines:
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
         heading = _normalise_heading(line.rstrip(":"))
         for section, aliases in SECTION_ALIASES.items():
             normalized_aliases = {_normalise_heading(alias) for alias in aliases}
@@ -178,247 +100,321 @@ def _document_profile(text):
         r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?\s+)?(?:19|20)\d{2})\b",
         flags=re.I,
     )
-    date_ranges = list(dict.fromkeys(date_pattern.findall(text)))
+    return sections, list(dict.fromkeys(date_pattern.findall(text)))[:12]
 
-    possible_name = ""
-    excluded = {alias for aliases in SECTION_ALIASES.values() for alias in aliases}
-    for line in lines[:5]:
-        cleaned = re.sub(r"^[|•·▪\-*\s]+|[|•·▪\-*\s]+$", "", line)
-        if "@" in cleaned or re.search(r"https?://|www\.|\d", cleaned, flags=re.I):
-            continue
-        words = cleaned.split()
-        if 2 <= len(words) <= 4 and len(cleaned) <= 50 and _normalise_heading(cleaned) not in excluded:
-            possible_name = cleaned
+
+def _affinda_date(value):
+    if not isinstance(value, dict):
+        return "Present" if value in ("present", "current", "now") else str(value or "")
+    if value.get("current"):
+        return "Present"
+    date_value = str(value.get("date") or "")
+    precision = value.get("precision")
+    if precision == "year":
+        return date_value[:4]
+    if precision == "month":
+        return date_value[:7]
+    return date_value
+
+
+def _affinda_date_range(item):
+    if not isinstance(item, dict):
+        return ""
+    date_range = item.get("dateRange") or {}
+    start = _affinda_date(date_range.get("start"))
+    end = _affinda_date(date_range.get("end"))
+    if start and end:
+        return f"{start} – {end}"
+    return start or end
+
+
+def _unique_text(values, limit=8):
+    result = []
+    seen = set()
+    for value in values:
+        value = re.sub(r"\s+", " ", str(value or "")).strip(" \t,;|•")
+        if value and value.casefold() not in seen:
+            result.append(value)
+            seen.add(value.casefold())
+        if len(result) >= limit:
             break
+    return result
 
-    fields = [
-        {"label": "Possible name", "value": possible_name, "evidence": possible_name, "found": bool(possible_name), "note": "Confirm this is your name." if possible_name else "Not detected"},
-        {"label": "Email", "value": emails[0] if emails else "", "evidence": emails[0] if emails else "", "found": bool(emails), "note": "" if emails else "Not detected"},
-        {"label": "Phone", "value": phones[0] if phones else "", "evidence": phones[0] if phones else "", "found": bool(phones), "note": "" if phones else "Not detected"},
-        {"label": "Location", "value": locations[0].strip() if locations else "", "evidence": locations[0].strip() if locations else "", "found": bool(locations), "note": "" if locations else "Not detected as a labeled field"},
-        {"label": "Profile links", "value": ", ".join(links[:3]), "evidence": ", ".join(links[:3]), "found": bool(links), "note": "" if links else "Not detected"},
-    ]
+
+def _named_values(items, *keys):
+    values = []
+    for item in items or []:
+        if isinstance(item, str):
+            values.append(item)
+        elif isinstance(item, dict):
+            values.extend(item.get(key) for key in keys)
+    return _unique_text(values)
+
+
+def _affinda_profile(text, data):
+    person = data.get("person") or {}
+    name_data = person.get("name") or {}
+    if isinstance(name_data, str):
+        full_name = name_data
+    else:
+        full_name = " ".join(
+            str(name_data.get(part)).strip()
+            for part in ("given", "middle", "family", "suffix")
+            if name_data.get(part)
+        )
+        if not full_name:
+            full_name = str(name_data.get("preferred") or "")
+
+    contact = data.get("contact") or {}
+    emails = _named_values(contact.get("emails") or [])
+    phones = _unique_text([
+        number.get("formatted") or number.get("raw") or number.get("nationalNumber")
+        if isinstance(number, dict) else number
+        for number in contact.get("phoneNumbers", [])
+    ])
+    websites = _unique_text([
+        website.get("url") or website.get("domain")
+        if isinstance(website, dict) else website
+        for website in contact.get("websites", [])
+    ])
+    location = person.get("location") or {}
+    if isinstance(location, dict):
+        location = location.get("formatted") or location.get("raw") or ", ".join(
+            str(location.get(key)) for key in ("city", "state", "country") if location.get(key)
+        )
+
+    work = data.get("workExperience") or []
+    titles = _named_values(work, "jobTitle")
+    employers = _named_values(work, "organization")
+    work_entries = []
+    for item in work:
+        if not isinstance(item, dict):
+            continue
+        title = item.get("jobTitle")
+        employer = item.get("organization")
+        date_range = _affinda_date_range(item)
+        line = " — ".join(value for value in (title, employer) if value)
+        if date_range:
+            line = f"{line} ({date_range})" if line else date_range
+        if line:
+            work_entries.append(line)
+
+    education = data.get("education") or []
+    education_entries = []
+    for item in education:
+        if not isinstance(item, dict):
+            continue
+        qualification = item.get("qualification")
+        study = ", ".join(_unique_text(item.get("fieldsOfStudy") or []))
+        institution = item.get("institution")
+        date_range = _affinda_date_range(item)
+        label = " — ".join(value for value in (qualification, study, institution) if value)
+        if date_range:
+            label = f"{label} ({date_range})" if label else date_range
+        if label:
+            education_entries.append(label)
+
+    qualifications = []
+    for item in education:
+        if isinstance(item, dict):
+            qualifications.extend((item.get("qualification"), *(item.get("fieldsOfStudy") or [])))
+    skills = _named_values(data.get("skills") or [], "name", "text")
+    certifications = _named_values(data.get("certifications") or [], "name")
+    languages = _named_values(data.get("languages") or [], "name")
+    projects = _named_values(data.get("projects") or [], "name", "title")
+    sections, date_ranges = _document_sections_and_dates(text)
+    if work and "experience" not in sections:
+        sections.append("experience")
+    if education and "education" not in sections:
+        sections.append("education")
+    if skills and "skills" not in sections:
+        sections.append("skills")
+    if certifications and "certifications" not in sections:
+        sections.append("certifications")
+    if projects and "projects" not in sections:
+        sections.append("projects")
+    date_ranges = _unique_text([*(_affinda_date_range(item) for item in [*work, *education]), *date_ranges], limit=12)
+
+    field_values = (
+        ("Possible name", [full_name]),
+        ("Email", emails),
+        ("Phone", phones),
+        ("Location", [location]),
+        ("Profile links", websites),
+        ("Job titles", titles),
+        ("Employers", employers),
+        ("Work history", work_entries),
+        ("Qualifications", qualifications),
+        ("Education providers", _named_values(education, "institution")),
+        ("Education", education_entries),
+        ("Skills identified", skills),
+        ("Certifications", certifications),
+        ("Languages identified", languages),
+    )
+    fields = []
+    for label, raw_values in field_values:
+        values = _unique_text(raw_values, limit=8)
+        evidence = "; ".join(values)
+        fields.append({
+            "label": label,
+            "value": evidence,
+            "evidence": evidence,
+            "found": bool(values),
+            "note": "Confirm this against the original resume." if values and label == "Possible name" else ("Not detected" if not values else ""),
+        })
+
+    recognized_entities = {
+        "job_titles": titles,
+        "employers": employers,
+        "qualifications": _unique_text(qualifications),
+        "skills": skills,
+        "certifications": certifications,
+        "languages": languages,
+        "work_history": work_entries[:6],
+        "education": education_entries[:6],
+    }
     return {
         "fields": fields,
         "sections": sections,
-        "date_ranges": date_ranges[:12],
-        "work_history_section": "experience" in sections,
-        "education_section": "education" in sections,
-        "skill_section": "skills" in sections,
+        "date_ranges": date_ranges,
+        "work_history_section": bool(work) or "experience" in sections,
+        "education_section": bool(education) or "education" in sections,
+        "skill_section": bool(skills) or "skills" in sections,
         "has_email": bool(emails),
         "has_phone": bool(phones),
+        "recognized_entities": recognized_entities,
+        "parser": "Affinda Resume Parser",
     }
 
 
-def _profile_with_entities(profile, entities):
-    aliases = {
-        "ORG": "COMPANY",
-        "ORGANIZATION": "COMPANY",
-        "SKILLS": "SKILL",
-        "CERTIFICATION": "CERT",
-        "CERTIFICATIONS": "CERT",
-        "EDUCATION": "DEGREE",
-        "SCHOOL": "INSTITUTION",
-        "UNIVERSITY": "INSTITUTION",
-    }
-    values_by_label = {}
-    for entity in entities:
-        if entity.get("confidence", 0) < 0.45:
-            continue
-        label = aliases.get(entity.get("label", "").upper(), entity.get("label", "").upper())
-        value = re.sub(r"\s+", " ", entity.get("value", "")).strip(" \t,;|•")
-        if not label or not value:
-            continue
-        values = values_by_label.setdefault(label, [])
-        if value.casefold() not in {existing.casefold() for existing in values}:
-            values.append(value)
+def _affinda_request(filename, file_bytes):
+    api_key = os.getenv("AFFINDA_API_KEY", "").strip()
+    if not api_key:
+        raise AffindaParserError(
+            "Affinda is not configured. Add AFFINDA_API_KEY in your local .env file and Render environment settings.",
+            503,
+        )
+    base_url = os.getenv("AFFINDA_API_BASE_URL", "https://resume-parser.affinda.com").strip().rstrip("/")
+    if not base_url.startswith("https://"):
+        raise AffindaParserError("AFFINDA_API_BASE_URL must be an https:// URL from your Affinda region.", 503)
 
-    field_definitions = (
-        ("Possible name", ("NAME",), 1),
-        ("Email", ("EMAIL",), 1),
-        ("Phone", ("PHONE",), 1),
-        ("Location", ("LOCATION",), 2),
-        ("Job titles", ("TITLE",), 4),
-        ("Employers", ("COMPANY",), 4),
-        ("Qualifications", ("DEGREE", "FIELD"), 5),
-        ("Education providers", ("INSTITUTION",), 4),
-        ("Skills identified", ("SKILL",), 12),
-        ("Certifications", ("CERT",), 6),
-        ("Languages identified", ("LANGUAGE",), 6),
-    )
-    fields = {field["label"]: field for field in profile["fields"]}
-    for label, entity_labels, limit in field_definitions:
-        extracted = []
-        for entity_label in entity_labels:
-            for value in values_by_label.get(entity_label, []):
-                if value.casefold() not in {item.casefold() for item in extracted}:
-                    extracted.append(value)
-        if not extracted:
-            continue
-        value = ", ".join(extracted[:limit])
-        fields[label] = {
-            "label": label,
-            "value": value,
-            "evidence": value,
-            "found": True,
-            "note": "Extracted from the document text; review against the original.",
-        }
+    params = {}
+    organization_id = os.getenv("AFFINDA_ORGANIZATION_ID", "").strip()
+    if organization_id:
+        params["organization"] = organization_id
+    headers = {"Authorization": f"Bearer {api_key}", "Accept": "application/json"}
+    content_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    url = f"{base_url}/v1/resumes/parse"
 
-    profile["fields"] = list(fields.values())
-    profile["entities"] = entities
-    profile["recognized_entities"] = {
-        label.lower(): values[:12]
-        for label, values in values_by_label.items()
-        if values
-    }
-    profile["parser"] = "Local resume entity model"
-    return profile
+    for attempt in range(2):
+        try:
+            response = requests.post(
+                url,
+                headers=headers,
+                params=params,
+                files={"file": (filename, file_bytes, content_type)},
+                timeout=(8, 45),
+            )
+        except requests.Timeout as error:
+            raise AffindaParserError("Affinda took too long to parse this file. Please try again.", 503) from error
+        except requests.RequestException as error:
+            raise AffindaParserError("ResuMate could not connect to the Affinda parser. Check the service URL and try again.", 503) from error
+
+        try:
+            response_body = response.json()
+        except ValueError:
+            response_body = {}
+        if response.ok:
+            if not isinstance(response_body, dict) or not isinstance(response_body.get("data"), dict):
+                raise AffindaParserError("Affinda returned an unexpected parse response. Please try again.", 502)
+            return response_body
+
+        error_code = response_body.get("code", "") if isinstance(response_body, dict) else ""
+        if attempt == 0 and (
+            response.status_code in (429, 502, 503, 504)
+            or error_code in ("rate_limited", "queue_full", "queue_timeout", "ocr_queue_full", "parser_unavailable")
+        ):
+            retry_after = response.headers.get("Retry-After", "0")
+            try:
+                delay = min(max(float(retry_after), 0.25), 2.0)
+            except ValueError:
+                delay = 0.5
+            time.sleep(delay)
+            continue
+
+        if error_code == "unauthorized":
+            message, status_code = "Affinda rejected the API key. Check that the key and API URL belong to the same region.", 503
+        elif error_code == "no_credits":
+            message, status_code = "The Affinda parser has no available credits. Add credits in the Affinda console.", 402
+        elif error_code == "organization_required":
+            message, status_code = "Affinda has multiple parser organizations. Set AFFINDA_ORGANIZATION_ID in the service environment.", 503
+        elif error_code in ("unsupported_format",):
+            message, status_code = "Affinda does not support this file type. Upload a PDF, Word, OpenDocument, RTF, text, or image file.", 415
+        elif error_code == "password_protected_document":
+            message, status_code = "This file is password protected. Remove the password and upload it again.", 422
+        elif error_code == "unparseable_document":
+            message, status_code = "Affinda could not extract readable content from this file.", 422
+        elif error_code == "forbidden":
+            message, status_code = "Affinda requires additional account security setup before it can parse resumes. Complete the required setup in the Affinda console.", 503
+        elif error_code == "organization_not_found":
+            message, status_code = "Affinda could not find the configured organization. Check AFFINDA_ORGANIZATION_ID in the service environment.", 503
+        elif response.status_code == 413:
+            message, status_code = "Affinda accepts files up to 20 MB. Choose a smaller file.", 413
+        elif response.status_code == 429:
+            message, status_code = "Affinda is temporarily busy. Please wait a moment and try again.", 503
+        elif response.status_code in (502, 503, 504):
+            message, status_code = "Affinda is temporarily unavailable. Please try again shortly.", 503
+        else:
+            message, status_code = "Affinda could not parse this file. Check the file and parser configuration, then try again.", 502
+        raise AffindaParserError(message, status_code)
+
+    raise AffindaParserError("Affinda is temporarily unavailable. Please try again shortly.", 503)
 
 
 def extract_resume_document(filename, file_bytes):
-    extension = os.path.splitext(filename or "")[1].lower()
-    warnings = []
-    page_count = 0
-    if extension == ".pdf":
-        try:
-            document = fitz.open(stream=file_bytes, filetype="pdf")
-            page_count = document.page_count
-            page_texts = []
-            page_character_counts = []
-            image_pages = 0
-            column_pages = 0
-            table_pages = 0
-            margin_contact_pages = 0
-            repeated_margin_text = set()
-            margin_by_page = []
-            for page in document:
-                blocks = [block for block in page.get_text("blocks") if len(block) > 6 and block[6] == 0 and block[4].strip()]
-                page_text = _pdf_reading_order(blocks, page.rect.width) or page.get_text("text", sort=True) or ""
-                page_texts.append(page_text)
-                page_character_counts.append(len(re.sub(r"\s", "", page_text)))
-                if page.get_images(full=True):
-                    image_pages += 1
-                try:
-                    if page.find_tables().tables:
-                        table_pages += 1
-                except Exception:
-                    pass
-                width, height = page.rect.width, page.rect.height
-                left = [b for b in blocks if b[2] < width * 0.46 and b[1] > height * 0.14 and b[3] < height * 0.9]
-                right = [b for b in blocks if b[0] > width * 0.54 and b[1] > height * 0.14 and b[3] < height * 0.9]
-                if len(left) >= 2 and len(right) >= 2 and any(
-                    max(a[1], b[1]) < min(a[3], b[3]) + 18 for a in left for b in right
-                ):
-                    column_pages += 1
-                margins = []
-                margin_contact = False
-                for block in blocks:
-                    normalized = re.sub(r"\s+", " ", block[4]).strip().lower()
-                    if normalized and (block[1] < height * 0.08 or block[3] > height * 0.92):
-                        margins.append(normalized)
-                        if re.search(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|\+?\d[\d\s()./-]{5,}\d", block[4]):
-                            margin_contact = True
-                if margin_contact:
-                    margin_contact_pages += 1
-                margin_by_page.append(set(margins))
-            for first in range(len(margin_by_page)):
-                for later in range(first + 1, len(margin_by_page)):
-                    repeated_margin_text |= margin_by_page[first] & margin_by_page[later]
-            document.close()
-            text = "\n".join(page_texts)
-            if not re.sub(r"\s", "", text):
-                if image_pages:
-                    raise ValueError("This PDF appears to contain scanned pages without selectable text. Export a text-based PDF or DOCX and try again.")
-                raise ValueError("The PDF does not contain readable text.")
-            if any(count < 80 for count in page_character_counts):
-                warnings.append("One or more pages contain very little selectable text. Check for scanned or image-only content.")
-            if column_pages:
-                warnings.append("A multi-column layout may affect text reading order. Review the extracted text preview below.")
-            if table_pages:
-                warnings.append("A table-like grid was detected. Review the extracted text preview to confirm the reading order.")
-            if repeated_margin_text:
-                warnings.append("Repeated text appears near page edges. Confirm that contact details and section content are also in the main page text.")
-            elif margin_contact_pages:
-                warnings.append("Contact information appears near a page edge. Review the original file and the extracted text preview.")
-            if image_pages:
-                warnings.append("Embedded images were found. Text inside images is not included in this review.")
-        except ValueError:
-            raise
-        except Exception as error:
-            raise ValueError(f"Error reading PDF: {error}") from error
-    elif extension == ".docx":
-        try:
-            document = Document(io.BytesIO(file_bytes))
-            chunks = []
-            table_count = 0
-            for block in _iter_docx_blocks(document):
-                if isinstance(block, Paragraph):
-                    if block.text.strip():
-                        chunks.append(block.text)
-                else:
-                    table_count += 1
-                    for row in block.rows:
-                        cells = [cell.text.strip().replace("\n", " ") for cell in row.cells]
-                        chunks.append(" | ".join(cell for cell in cells if cell))
-            header_footer_text = any(
-                paragraph.text.strip()
-                for section in document.sections
-                for paragraph in [*section.header.paragraphs, *section.footer.paragraphs]
-            ) or any(
-                table.rows
-                for section in document.sections
-                for table in [*section.header.tables, *section.footer.tables]
-            )
-            text = "\n".join(chunks)
-            page_count = 0
-            if table_count:
-                warnings.append(f"{table_count} table{'s' if table_count != 1 else ''} detected. Table content is included, but another system may read it in a different order.")
-            if header_footer_text:
-                warnings.append("Text was found in a page header or footer. Confirm important details are also present in the document body.")
-            if document.inline_shapes:
-                warnings.append("Embedded images were found. Text inside images is not included in this review.")
-        except Exception as error:
-            raise ValueError(f"Error reading DOCX: {error}") from error
-    elif extension == ".txt":
-        try:
-            text = file_bytes.decode("utf-8-sig")
-        except UnicodeDecodeError as error:
-            raise ValueError("The text file must use UTF-8 encoding.") from error
-    else:
-        raise ValueError("Unsupported file format. Upload a PDF, DOCX, or TXT file.")
+    parsed = _affinda_request(filename, file_bytes)
+    data = parsed["data"]
+    meta = parsed.get("meta") or {}
+    text = str(data.get("rawText") or "").strip()
+    if not text:
+        raise AffindaParserError("Affinda did not return readable resume text. Try a different file.", 422)
 
-    if not text.strip():
-        raise ValueError("The file appears empty or does not contain readable text.")
-    profile = _document_profile(text)
-    parser_status = "Basic document checks"
-    profile["parser"] = parser_status
-    try:
-        parsed_entities = extract_resume_entities(text)
-        profile = _profile_with_entities(profile, parsed_entities["entities"])
-        parser_status = profile["parser"]
-        if parsed_entities["truncated"]:
-            warnings.append("The local entity parser reached its per-document text limit. Later pages may not appear in the structured extraction.")
-    except ResumeParserUnavailable:
-        warnings.append("The local resume entity model was unavailable. Basic text, contact, and section checks are shown.")
-    if profile["parser"] != "Local resume entity model":
-        profile["parser"] = parser_status
+    profile = _affinda_profile(text, data)
+    document_meta = meta.get("document") or {}
+    quality = document_meta.get("extractionQuality") or {}
+    quality_band = str(quality.get("band") or "unknown").lower()
+    classification = document_meta.get("classification") or {}
+    classification_label = str(classification.get("label") or "uncertain").lower()
+    ocr = meta.get("ocr") or {}
+    warnings = []
+    if classification_label != "resume":
+        warnings.append("Affinda did not confidently classify this upload as a resume. Check the extracted fields against the original file.")
+    if quality_band in ("low", "medium", "unknown"):
+        warnings.append(f"Affinda reported {quality_band} extraction quality. Review the original resume and extracted text carefully.")
+    for warning in document_meta.get("warnings", []) or []:
+        if isinstance(warning, dict) and warning.get("message"):
+            warnings.append(str(warning["message"]))
+    if ocr.get("truncated"):
+        warnings.append("OCR processed only part of this scanned document. Some later-page details may be missing.")
+
+    page_count = ocr.get("sourcePageCount") or document_meta.get("pageCount")
     word_count = len(text.split())
-    if word_count < 40:
-        warnings.append("Very little text was extracted. Check that the correct resume was uploaded and that its content is selectable.")
-    if not profile["sections"]:
-        warnings.append("No common resume section headings were recognized. Clear headings can make information easier to locate.")
-    status = "Check extraction" if warnings else "Text extracted"
+    status = "Review extraction" if warnings else ("High-quality extraction" if quality_band == "high" else "Text extracted")
     return {
         "text": text,
         "profile": profile,
         "readability": {
             "status": status,
-            "page_count": page_count or None,
+            "page_count": page_count,
             "word_count": word_count,
             "character_count": len(re.sub(r"\s", "", text)),
             "warnings": warnings,
-            "format": extension.lstrip(".").upper(),
+            "format": os.path.splitext(filename or "")[1].lstrip(".").upper(),
             "parser": profile["parser"],
+            "quality_band": quality_band,
+            "quality_score": quality.get("score"),
+            "classification": classification_label,
+            "ocr_used": bool(ocr.get("routed")),
         },
     }
 
@@ -996,6 +992,8 @@ Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 DOCUMENT READABILITY
 --------------------
 Status: {readability['status']}
+Parser: {readability.get('parser', 'Affinda Resume Parser')}
+Extraction quality: {readability.get('quality_band', 'unknown')}
 Format: {readability['format']}
 Pages: {readability['page_count'] or 'Not available'}
 Words extracted: {readability['word_count']}
@@ -1062,7 +1060,7 @@ RECOGNIZED CERTIFICATION REQUIREMENTS:
 EXPERIENCE DURATION:
 {experience}
 
-DOCUMENT READABILITY: {readability['status']} · {readability['format']} · {readability['word_count']} words extracted
+DOCUMENT READABILITY: {readability['status']} · {readability['format']} · {readability['word_count']} words extracted · Affinda quality {readability.get('quality_band', 'unknown')}
 {warnings}
 
 WRITTEN REVIEW:

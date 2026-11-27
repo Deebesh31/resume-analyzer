@@ -27,6 +27,7 @@ from resume_service import (
     ANALYSIS_MODES,
     FOCUS_AREAS,
     TOOLS,
+    AffindaParserError,
     GeminiConfigurationError,
     analyze_job_match,
     analyze_resume,
@@ -161,10 +162,14 @@ def remaining_usage():
 def get_resume_upload(field_name="resume"):
     uploaded = request.files.get(field_name)
     if uploaded is None or not uploaded.filename:
-        raise ValueError("Choose a PDF, DOCX, or TXT resume to continue.")
+        raise ValueError("Choose a supported resume file to continue.")
     filename = secure_filename(uploaded.filename)
-    if not filename or os.path.splitext(filename)[1].lower() not in (".pdf", ".docx", ".txt"):
-        raise ValueError("Unsupported file format. Upload a PDF, DOCX, or TXT file.")
+    allowed_extensions = (
+        ".pdf", ".doc", ".docx", ".odt", ".rtf", ".txt",
+        ".png", ".jpg", ".jpeg", ".gif", ".tif", ".tiff", ".bmp", ".webp",
+    )
+    if not filename or os.path.splitext(filename)[1].lower() not in allowed_extensions:
+        raise ValueError("Unsupported file format. Use a PDF, Word, OpenDocument, RTF, text, or image file.")
     file_bytes = uploaded.read(MAX_UPLOAD_BYTES + 1)
     if len(file_bytes) > MAX_UPLOAD_BYTES:
         raise ValueError("The resume exceeds the 20 MB file limit.")
@@ -186,6 +191,8 @@ def run_api_operation(operation):
         return api_error(str(error), 400)
     except PermissionError as error:
         return api_error(str(error), 429)
+    except AffindaParserError as error:
+        return api_error(str(error), error.status_code)
     except GeminiConfigurationError as error:
         return api_error(str(error), 503)
     except Exception:
@@ -280,7 +287,6 @@ def index():
 def api_analyze():
     def operation():
         filename, file_bytes = get_resume_upload()
-        consume_feature_request("resume_analysis")
         focus_areas = request.form.getlist("focus_areas")
         focus_areas = [item for item in focus_areas if item in FOCUS_AREAS]
         result = analyze_resume(
@@ -293,6 +299,7 @@ def api_analyze():
             enable_readability=parse_bool("enable_readability", True),
             enable_action_verbs=parse_bool("enable_action_verbs", False),
         )
+        consume_feature_request("resume_analysis")
         result["remaining_usage"] = remaining_usage()
         return result
     return run_api_operation(operation)
@@ -305,13 +312,13 @@ def api_job_match():
         job_description = request.form.get("job_description", "")
         if not job_description.strip():
             raise ValueError("Paste a job description to continue.")
-        consume_feature_request("job_match")
         result = analyze_job_match(
             filename,
             file_bytes,
             job_description,
             job_title=request.form.get("job_title", "").strip(),
         )
+        consume_feature_request("job_match")
         result["remaining_usage"] = remaining_usage()
         return result
     return run_api_operation(operation)
@@ -328,7 +335,6 @@ def api_cover_letter():
         allowed_tones = ("Professional", "Enthusiastic", "Formal", "Creative", "Conversational")
         if tone not in allowed_tones:
             tone = "Professional"
-        consume_feature_request("cover_letter")
         letter = generate_cover_letter(
             filename,
             file_bytes,
@@ -337,6 +343,7 @@ def api_cover_letter():
             role=request.form.get("role", "").strip(),
             tone=tone,
         )
+        consume_feature_request("cover_letter")
         return {"cover_letter": letter, "remaining_usage": remaining_usage()}
     return run_api_operation(operation)
 
