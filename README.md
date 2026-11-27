@@ -1,233 +1,72 @@
-# AI Resume Analyzer Pro
+# Resume Analyzer
 
-A sophisticated AI-powered resume analysis tool built with Streamlit and Google's Gemini AI. Get professional feedback on your resume, match it against job descriptions, generate cover letters, and access powerful resume enhancement tools.
+A private Flask web app for reviewing resumes, comparing a resume with a job description, drafting cover letters, and using focused writing tools. The app runs locally or as a Python web service on Render.
 
 ## Features
 
-### Core Features
-- **AI-Powered Resume Analysis**: Get detailed feedback from Google's Gemini AI on resume quality, structure, and content
-- **Resume Scoring System**: Receive a comprehensive score (0-100) based on industry standards
-- **ATS Compatibility Check**: Ensure your resume passes Applicant Tracking Systems
-- **Keyword Analysis**: Match your resume against job descriptions to identify gaps
-- **Action Verb Analysis**: Detect weak phrases and get suggestions for stronger alternatives
+- Resume analysis for PDF and TXT files
+- Existing heuristic resume score, text-based ATS checks, resume statistics, and AI feedback
+- Resume-to-job-description match review and optional simple keyword overlap
+- Cover-letter drafts in five tones
+- Action verb, achievement wording, bullet point, section order, and interview preparation tools
+- In-session analysis history and comparison
+- Gemini model fallback from `gemini-3.8-flash` to `gemini-3.5-flash-lite`
 
-### Advanced Tools
-- **Job Matcher**: Compare your resume against job descriptions with keyword matching
-- **Cover Letter Generator**: Create tailored cover letters in multiple tones
-- **Analysis History**: Track improvements across multiple resume versions
-- **Resume Enhancement Tools**:
-  - Action Verb Replacer
-  - Achievement Quantifier
-  - Bullet Point Improver
-  - Section Reorganizer
-  - Interview Question Generator
+The resume score and ATS checks are product heuristics. They do not simulate an employer's ATS or predict hiring outcomes.
 
-### Analysis Modes
-- **Quick Scan**: Brief overview with key points
-- **Standard Analysis**: Detailed analysis with examples
-- **Deep Dive**: Comprehensive analysis with industry comparisons
-- **ATS Optimization**: Focus on applicant tracking system compatibility
+## Run locally
 
-## Prerequisites
+Requirements: Python 3.11 or later and a Gemini API key.
 
-- Python 3.11 or higher
-- Google Gemini API key ([Get one here](https://makersuite.google.com/app/apikey))
-
-## Installation
-
-### 1. Clone the repository
-```bash
-git clone https://github.com/Deebesh31/resume-analyzer.git
-cd resume-analyzer
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+py -m pip install -r requirements.txt
+Copy-Item .env.example .env
+notepad .env
+py main.py
 ```
 
-### 2. Create a virtual environment
-```bash
-# Using venv
-python -m venv .venv
+Open `http://127.0.0.1:5000`.
 
-# Activate on Windows
-.venv\Scripts\activate
+Set these values in `.env`:
 
-# Activate on Mac/Linux
-source .venv/bin/activate
-```
-
-### 3. Install dependencies
-```bash
-pip install streamlit PyPDF2 google-generativeai python-dotenv matplotlib
-```
-
-Or if using `uv` (faster):
-```bash
-uv pip install -r requirements.txt
-```
-
-### 4. Set up environment variables
-Create a `.env` file in the project root:
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_gemini_api_key
+APP_PASSWORD=choose_a_long_private_workspace_password
+FLASK_SECRET_KEY=replace_with_a_random_secret
 ```
 
-**Important**: Never commit your `.env` file to version control. It's already included in `.gitignore`.
+`APP_PASSWORD` enables the shared-password sign-in gate locally. `FLASK_SECRET_KEY` signs the session cookie; keep it secret and use a different value in each environment. Never commit `.env` or put API keys in source files.
 
-## Usage
+## Deploy to Render
 
-### Run the application
-```bash
-streamlit run main.py
+The repository includes [`render.yaml`](render.yaml) for a Python web service. Render builds with `pip install -r requirements.txt` and runs Flask with Gunicorn.
+
+1. Push this repository to a Git provider and connect it in Render.
+2. Create a Blueprint from the repository so Render reads `render.yaml`.
+3. When prompted, enter `GEMINI_API_KEY` and a strong `APP_PASSWORD`. Keep both in Render's environment settings.
+4. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration.
+5. Wait for the service health check at `/health` and open its Render URL.
+
+The Render configuration selects the free web-service plan. Gemini API usage is separate and may incur charges. The shared password restricts access, while each browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small private workspace; they are not a substitute for account-based quotas on a public multi-user product.
+
+## Data handling
+
+- Resume uploads accept PDF and TXT files up to 20 MB. The request cap includes multipart form overhead.
+- Resume text and job descriptions are sent from the server to the configured Google Gemini API when the user requests AI feedback.
+- This project has no database or resume library. It does not intentionally persist uploads or reports; analysis history stays in the open browser tab and disappears when it is refreshed or closed.
+- The app does not log resume content. Do not upload sensitive information unless you are comfortable with the configured Gemini provider's data handling terms.
+- Use Render environment variables for secrets. Do not commit `.env` or share `GEMINI_API_KEY`.
+
+## Project structure
+
+```text
+app.py                 Flask routes, sign-in, CSRF, session quotas
+resume_service.py      PDF/TXT parsing, existing scoring and Gemini workflows
+main.py                Local development entry point
+templates/             Flask HTML templates
+static/                Responsive CSS and browser interactions
+render.yaml            Render Blueprint configuration
+requirements.txt       Render and local Python dependencies
 ```
-
-The app will open in your default browser at `http://localhost:8501`
-
-### Basic Workflow
-1. **Upload Resume**: Upload your resume in PDF or TXT format
-2. **Select Analysis Mode**: Choose from Quick Scan, Standard, Deep Dive, or ATS Optimization
-3. **Configure Settings**: Select focus areas and enable/disable features in the sidebar
-4. **Analyze**: Click "Analyze Resume" to get AI-powered feedback
-5. **Download Results**: Export your analysis report
-
-### Additional Features
-- **Job Matcher**: Upload resume + paste job description to see match percentage
-- **Cover Letter Generator**: Generate tailored cover letters based on your resume
-- **History**: Track and compare multiple resume versions
-- **Tools**: Use enhancement tools to improve specific aspects of your resume
-
-## Project Structure
-
-```
-resume-analyzer/
-├── main.py                 # Main Streamlit application
-├── .env                    # Environment variables (not committed)
-├── .gitignore             # Git ignore file
-├── pyproject.toml         # Project configuration
-├── uv.lock                # Dependency lock file
-├── README.md              # This file
-└── .python-version        # Python version specification
-```
-
-## Configuration
-
-### Sidebar Settings
-- **Analysis Mode**: Choose depth of analysis
-- **Focus Areas**: Select specific aspects to analyze
-- **Feature Toggles**: Enable/disable scoring, statistics, ATS checks, etc.
-
-### Supported File Formats
-- PDF (`.pdf`)
-- Plain Text (`.txt`)
-
-## API Usage and Costs
-
-This application uses Google's Gemini API. Be aware of potential costs:
-
-- **Gemini 2.0 Flash**: Approximately $0.01-0.05 per resume analysis
-- Free tier available with rate limits
-- Consider implementing usage limits for public deployments
-
-### Cost Management Options
-1. Add session-based rate limiting
-2. Require users to provide their own API keys
-3. Implement user authentication with quotas
-
-## Deployment
-
-### Streamlit Community Cloud (Free)
-1. Push your code to GitHub (already done!)
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect your GitHub account
-4. Select this repository
-5. Add your `GEMINI_API_KEY` in "Advanced settings" > "Secrets"
-6. Deploy
-
-### Adding Secrets on Streamlit Cloud
-In the Streamlit Cloud dashboard, add:
-```toml
-GEMINI_API_KEY = "your_api_key_here"
-```
-
-### Other Deployment Options
-- **Railway**: Connect GitHub repo, add environment variables
-- **Render**: Connect GitHub, configure as web service
-- **Heroku**: Use Heroku CLI to deploy
-- **Docker**: Build and deploy as container
-
-## Security Notes
-
-- Never commit `.env` files to version control
-- Keep your API keys secret
-- Rotate API keys regularly
-- Consider implementing authentication for production use
-- Add rate limiting to prevent API abuse
-
-## Troubleshooting
-
-### Common Issues
-
-**"GEMINI_API_KEY not found"**
-- Ensure `.env` file exists in project root
-- Verify the key is correctly formatted
-- Check that `python-dotenv` is installed
-
-**"Error reading PDF"**
-- Ensure PDF is not password-protected
-- Try converting to a different PDF format
-- Check file size (keep under 10MB)
-
-**"Module not found"**
-- Activate virtual environment
-- Run `pip install -r requirements.txt`
-
-**Rate limit errors**
-- You've exceeded API quota
-- Wait or upgrade your API plan
-- Implement usage limits
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Built with [Streamlit](https://streamlit.io/)
-- Powered by [Google Gemini AI](https://deepmind.google/technologies/gemini/)
-- PDF parsing with [PyPDF2](https://pypdf2.readthedocs.io/)
-
-## Support
-
-For issues, questions, or suggestions:
-- Open an issue on GitHub
-- Contact: [Your contact info]
-
-## Roadmap
-
-- [ ] Add support for DOCX files
-- [ ] Implement user authentication
-- [ ] Add multiple language support
-- [ ] Create resume templates library
-- [ ] Add LinkedIn profile analyzer
-- [ ] Implement resume builder from scratch
-- [ ] Add industry-specific analysis modes
-
-## Changelog
-
-### Version 1.0.0 (2025-01-XX)
-- Initial release
-- Core resume analysis features
-- Job matcher and cover letter generator
-- Resume enhancement tools
-- Analysis history and comparison
-
----
-
-Made with Streamlit and Gemini AI | © 2025

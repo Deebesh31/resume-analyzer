@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="theme-color" content="#f6f7f9">
+  <title>Sign in · Resume Analyzer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body class="login-page">
+  <a class="skip-link" href="#login-main">Skip to sign in</a>
+  <main class="login-wrap" id="login-main">
+    <a class="brand login-brand" href="{{ url_for('login') }}" aria-label="Resume Analyzer">
+      <span class="brand-mark" aria-hidden="true">R</span>
+      <span class="brand-copy"><strong>Resume Analyzer</strong><small>Career clarity workspace</small></span>
+    </a>
+    <section class="login-card surface">
+      <p class="eyebrow">Private workspace</p>
+      <h1>Welcome back.</h1>
+      <p class="muted">Enter the workspace password to continue.</p>
+      {% if error %}<div class="error-panel login-error" role="alert">{{ error }}</div>{% endif %}
+      <form action="{{ url_for('login') }}" method="post" class="login-form">
+        <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+        <label class="field-label" for="password">Workspace password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+        <button class="button button-primary" type="submit">Sign in <span aria-hidden="true">→</span></button>
+      </form>
+      <p class="field-help">This workspace uses one shared password. It does not create individual user accounts.</p>
+    </section>
+  </main>
+</body>
+</html>

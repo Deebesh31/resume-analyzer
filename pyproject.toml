@@ -1,12 +1,13 @@
 [project]
-name = "project1"
+name = "resume-analyzer"
 version = "0.1.0"
-description = "Add your description here"
+description = "A private Flask resume analysis workspace"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "openai>=1.109.1",
-    "pypdf2>=3.0.1",
-    "python-dotenv>=1.1.1",
-    "streamlit>=1.50.0",
+    "flask>=3.0,<4.0",
+    "google-genai>=3.6.1,<4.0.0",
+    "gunicorn>=22.0,<24.0",
+    "pypdf2==3.0.1",
+    "python-dotenv==1.0.0",
 ]
