@@ -325,17 +325,81 @@ function describeReadability(readability, label, summary, chips) {
   fillChips(document.getElementById(chips), readability.sections, "No common section headings recognized");
 }
 
+function animateScore(score) {
+  const scoreValue = document.getElementById("score-value");
+  const progress = document.getElementById("score-progress");
+  const scoreCard = document.querySelector(".score-card");
+  const scoreVisual = document.querySelector(".score-visual");
+  const marker = document.querySelector(".score-orbit-dot");
+  if (!scoreValue || !progress || !scoreCard || !scoreVisual || !marker) return;
+
+  const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
+  const circumference = 301.6;
+  const band = safeScore >= 80 ? "strong" : safeScore >= 60 ? "developing" : "early";
+  const setProgress = (value) => {
+    progress.style.strokeDasharray = String(circumference);
+    progress.style.strokeDashoffset = String(circumference * (1 - value / 100));
+  };
+  const markerRadius = scoreVisual.clientWidth * (48 / 120);
+  const markerAngle = (safeScore / 100) * Math.PI * 2 - Math.PI / 2;
+  marker.style.left = `${scoreVisual.clientWidth / 2 + Math.cos(markerAngle) * markerRadius - marker.offsetWidth / 2}px`;
+  marker.style.top = `${scoreVisual.clientHeight / 2 + Math.sin(markerAngle) * markerRadius - marker.offsetHeight / 2}px`;
+  marker.style.right = "auto";
+  scoreCard.dataset.band = band;
+  scoreCard.classList.remove("score-reveal");
+  void scoreCard.offsetWidth;
+  scoreCard.classList.add("score-reveal");
+
+  if (prefersReducedMotion() || !window.gsap) {
+    scoreValue.textContent = String(safeScore);
+    setProgress(safeScore);
+    marker.style.opacity = "1";
+    marker.style.transform = "scale(1)";
+    return;
+  }
+
+  scoreValue.textContent = "0";
+  setProgress(0);
+  marker.style.opacity = "0";
+  const counter = { value: 0 };
+  window.gsap.to(counter, {
+    value: safeScore,
+    duration: 1.45,
+    ease: "power3.out",
+    onUpdate: () => {
+      scoreValue.textContent = String(Math.round(counter.value));
+      setProgress(counter.value);
+    },
+  });
+  window.gsap.fromTo(marker, { scale: 0.25, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.48, delay: 0.82, ease: "back.out(2.2)", clearProps: "transform,opacity" });
+}
+
 function renderResumeResult(result) {
   document.getElementById("analysis-results").hidden = false;
   const overview = document.getElementById("analysis-overview");
+  const scoreCard = document.querySelector(".score-card");
+  const score = Number.isFinite(result.score) ? result.score : null;
   const stats = result.stats;
   const readability = result.readability;
-  overview.hidden = !stats && !readability;
-  document.querySelector(".readability-card").hidden = !readability;
+  overview.hidden = !stats && score === null;
+  scoreCard.hidden = score === null;
+  document.getElementById("readability-card").hidden = !readability;
   const filename = stripEmoji(result.filename || "");
   const analysis = stripEmoji(result.analysis || "");
   const fullReport = stripEmoji(result.full_report || "");
   document.getElementById("analysis-filename").textContent = filename;
+  if (score !== null) {
+    document.getElementById("score-label").textContent = result.score_label || (score >= 80 ? "Strong foundations" : score >= 60 ? "Room to strengthen" : score >= 40 ? "Several opportunities" : "A useful starting point");
+    document.getElementById("score-svg-desc").textContent = `ResuMate structure score: ${score} out of 100. This is a heuristic, not an employer ATS score.`;
+    const breakdown = document.getElementById("score-breakdown");
+    breakdown.replaceChildren();
+    (result.score_breakdown || []).forEach((factor) => {
+      const item = document.createElement("li");
+      item.textContent = `${factor.name}: ${factor.score}/${factor.maximum}. ${factor.detail}`;
+      breakdown.append(item);
+    });
+    requestAnimationFrame(() => animateScore(score));
+  }
   describeReadability(readability, "readability-label", "readability-summary", "readability-chips");
   const parseSection = document.getElementById("ats-results");
   parseSection.hidden = !readability;
@@ -390,6 +454,7 @@ function renderResumeResult(result) {
   downloads.fullReport = fullReport;
   addHistoryEntry({
     filename,
+    score,
     stats: result.stats,
     readability: result.readability,
     analysis,
@@ -425,7 +490,7 @@ function renderHistory() {
     main.append(title, date);
     const score = document.createElement("span");
     score.className = "history-entry-score";
-    score.textContent = entry.readability?.status || "Review complete";
+    score.textContent = Number.isFinite(entry.score) ? `${entry.score}/100 structure` : (entry.readability?.status || "Review complete");
     const actions = document.createElement("div");
     actions.className = "history-actions";
     const download = document.createElement("button");
@@ -468,6 +533,10 @@ function renderComparison() {
   }
   const firstStats = first.stats || {};
   const secondStats = second.stats || {};
+  if (Number.isFinite(first.score) && Number.isFinite(second.score)) {
+    const scoreDelta = second.score - first.score;
+    addMetric(results, "Structure score", `${second.score}/100`, `${scoreDelta >= 0 ? "+" : ""}${scoreDelta} points`);
+  }
   addMetric(results, "Word count", String(secondStats.word_count ?? "—"), `${(secondStats.word_count ?? 0) - (firstStats.word_count ?? 0) >= 0 ? "+" : ""}${(secondStats.word_count ?? 0) - (firstStats.word_count ?? 0)}`);
   addMetric(results, "Action verbs", String(secondStats.action_verb_count ?? "—"), `${(secondStats.action_verb_count ?? 0) - (firstStats.action_verb_count ?? 0) >= 0 ? "+" : ""}${(secondStats.action_verb_count ?? 0) - (firstStats.action_verb_count ?? 0)}`);
   addMetric(results, "Numbers in text", String(secondStats.quantifiable_achievements ?? "—"), `${(secondStats.quantifiable_achievements ?? 0) - (firstStats.quantifiable_achievements ?? 0) >= 0 ? "+" : ""}${(secondStats.quantifiable_achievements ?? 0) - (firstStats.quantifiable_achievements ?? 0)}`);

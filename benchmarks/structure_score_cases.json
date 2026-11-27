@@ -1,0 +1,191 @@
+{
+  "dataset_name": "ResuMate Structure Score Rubric Regression Set",
+  "dataset_version": "1.0.0",
+  "dataset_type": "synthetic_rubric_regression",
+  "rubric": {
+    "version": "1.0",
+    "weights": {
+      "Text extraction": 20,
+      "Section structure": 25,
+      "Work-history detail": 20,
+      "Contact details": 10,
+      "Skills visibility": 10,
+      "Achievement evidence": 15
+    }
+  },
+  "provenance": "All resume text and parser-profile fixtures in this file are fictional and written for this project. No real resumes or candidate data are included.",
+  "limitations": "Expected scores are calculated from the same explicit rubric implemented in resume_service.py. This set checks rubric consistency and regressions only; it does not establish agreement with ATS software, recruiters, hiring outcomes, or resume quality in general.",
+  "documents": {
+    "complete_resume": "MORGAN EXAMPLE\nmorgan.example@example.test | +1 202-555-0133 | Port Louis, Mauritius\n\nPROFESSIONAL SUMMARY\nSoftware engineer with six years of experience building reliable data and payment services.\n\nPROFESSIONAL EXPERIENCE\nSenior Software Engineer | Northstar Systems | Jan 2022 - Present\n- Improved payment API throughput by 42% through query optimization.\n- Reduced nightly release time by 3 hours by redesigning deployment checks.\n- Increased self-service adoption by 18% after improving onboarding flows.\n- Saved $120,000 in annual infrastructure costs through capacity planning.\n- Expanded platform capacity to 25,000 users with queue-based processing.\n- Led a migration plan with product and infrastructure teams.\n- Developed Python services and REST APIs for account operations.\n- Designed monitoring dashboards for support and engineering teams.\n- Implemented integration checks for critical payment workflows.\n- Optimized database indexes and documented operational procedures.\nSoftware Engineer | Example Analytics | Jul 2019 - Dec 2021\n- Built internal reporting services and maintained data pipelines.\n\nEDUCATION\nBSc, Computer Science | Example State University | 2015 - 2019\n\nSKILLS\nPython, SQL, AWS, Docker, REST APIs\n\nPROJECTS\nService health dashboard | Example State University\n\nCERTIFICATIONS\nAWS Certified Cloud Practitioner\n\nAWARDS\nEngineering Team Impact Award",
+    "early_career_resume": "TAYLOR EXAMPLE\ntaylor.example@example.test | Curepipe, Mauritius\n\nSUMMARY\nRecent computer science graduate interested in backend development and data services.\n\nEDUCATION\nBSc, Computer Science | Example Institute | 2022 - 2026\n\nSKILLS\nPython, SQL, Flask\n\nPROJECTS\nCourse Planner | Built a course registration prototype with a three-person student group.",
+    "sparse_resume": "Morgan Example\nSeeking an entry-level software development role.",
+    "achievement_light_resume": "MORGAN EXAMPLE\nmorgan.example@example.test | +1 202-555-0133 | Port Louis, Mauritius\n\nPROFESSIONAL SUMMARY\nSoftware engineer with six years of experience in service development.\n\nPROFESSIONAL EXPERIENCE\nSenior Software Engineer | Northstar Systems | Jan 2022 - Present\n- Developed internal service documentation.\n- Maintained application services and supported routine releases.\nSoftware Engineer | Example Analytics | Jul 2019 - Dec 2021\n- Maintained data pipelines and updated reporting guides.\n\nEDUCATION\nBSc, Computer Science | Example State University | 2015 - 2019\n\nSKILLS\nPython, SQL, AWS, Docker, REST APIs\n\nPROJECTS\nService health dashboard | Example State University\n\nCERTIFICATIONS\nAWS Certified Cloud Practitioner\n\nAWARDS\nEngineering Team Impact Award",
+    "basic_sections_resume": "MORGAN EXAMPLE\nmorgan.example@example.test | +1 202-555-0133 | Port Louis, Mauritius\n\nPROFESSIONAL EXPERIENCE\nSenior Software Engineer | Northstar Systems | Jan 2022 - Present\n- Improved payment API throughput by 42% through query optimization.\n- Reduced nightly release time by 3 hours by redesigning deployment checks.\n- Increased self-service adoption by 18% after improving onboarding flows.\n- Saved $120,000 in annual infrastructure costs through capacity planning.\n- Expanded platform capacity to 25,000 users with queue-based processing.\n- Led a migration plan with product and infrastructure teams.\n- Developed Python services and REST APIs for account operations.\n- Designed monitoring dashboards for support and engineering teams.\n- Implemented integration checks for critical payment workflows.\n- Optimized database indexes and documented operational procedures.\nSoftware Engineer | Example Analytics | Jul 2019 - Dec 2021\n- Built internal reporting services and maintained data pipelines.\n\nEDUCATION\nBSc, Computer Science | Example State University | 2015 - 2019\n\nSKILLS\nPython, SQL, AWS, Docker, REST APIs"
+  },
+  "profiles": {
+    "complete": {
+      "sections": ["summary", "experience", "education", "skills", "projects", "certifications", "awards"],
+      "recognized_entities": {
+        "work_history": ["Senior Software Engineer — Northstar Systems", "Software Engineer — Example Analytics"],
+        "job_titles": ["Senior Software Engineer", "Software Engineer"],
+        "employers": ["Northstar Systems", "Example Analytics"],
+        "work_date_ranges": ["Jan 2022 - Present", "Jul 2019 - Dec 2021"],
+        "skills": ["Python", "SQL", "AWS", "Docker", "REST APIs"]
+      },
+      "has_email": true,
+      "has_phone": true
+    },
+    "without_contact_signals": {
+      "sections": ["summary", "experience", "education", "skills", "projects", "certifications", "awards"],
+      "recognized_entities": {
+        "work_history": ["Senior Software Engineer — Northstar Systems", "Software Engineer — Example Analytics"],
+        "job_titles": ["Senior Software Engineer", "Software Engineer"],
+        "employers": ["Northstar Systems", "Example Analytics"],
+        "work_date_ranges": ["Jan 2022 - Present", "Jul 2019 - Dec 2021"],
+        "skills": ["Python", "SQL", "AWS", "Docker", "REST APIs"]
+      },
+      "has_email": false,
+      "has_phone": false
+    },
+    "early_career": {
+      "sections": ["summary", "education", "skills", "projects"],
+      "recognized_entities": {
+        "work_history": [],
+        "job_titles": [],
+        "employers": [],
+        "work_date_ranges": [],
+        "skills": ["Python", "SQL", "Flask"]
+      },
+      "has_email": true,
+      "has_phone": false
+    },
+    "minimal": {
+      "sections": [],
+      "recognized_entities": {
+        "work_history": [],
+        "job_titles": [],
+        "employers": [],
+        "work_date_ranges": [],
+        "skills": []
+      },
+      "has_email": false,
+      "has_phone": false
+    },
+    "complete_without_parsed_skills": {
+      "sections": ["summary", "experience", "education", "skills", "projects", "certifications", "awards"],
+      "recognized_entities": {
+        "work_history": ["Senior Software Engineer — Northstar Systems", "Software Engineer — Example Analytics"],
+        "job_titles": ["Senior Software Engineer", "Software Engineer"],
+        "employers": ["Northstar Systems", "Example Analytics"],
+        "work_date_ranges": ["Jan 2022 - Present", "Jul 2019 - Dec 2021"],
+        "skills": []
+      },
+      "has_email": true,
+      "has_phone": true
+    },
+    "basic_sections": {
+      "sections": ["experience", "education", "skills"],
+      "recognized_entities": {
+        "work_history": ["Senior Software Engineer — Northstar Systems", "Software Engineer — Example Analytics"],
+        "job_titles": ["Senior Software Engineer", "Software Engineer"],
+        "employers": ["Northstar Systems", "Example Analytics"],
+        "work_date_ranges": ["Jan 2022 - Present", "Jul 2019 - Dec 2021"],
+        "skills": ["Python", "SQL", "AWS", "Docker", "REST APIs"]
+      },
+      "has_email": true,
+      "has_phone": true
+    }
+  },
+  "cases": [
+    {
+      "id": "complete_resume",
+      "description": "All six rubric areas present; extraction quality rounds to the full 20 points.",
+      "document": "complete_resume",
+      "profile": "complete",
+      "readability": {"quality_score": 0.98, "quality_band": "high"},
+      "expected_score": 100,
+      "expected_label": "Strong foundations",
+      "expected_breakdown": {"Text extraction": 20, "Section structure": 25, "Work-history detail": 20, "Contact details": 10, "Skills visibility": 10, "Achievement evidence": 15}
+    },
+    {
+      "id": "low_extraction_quality",
+      "description": "Changes only extraction quality to confirm the 20-point extraction weight.",
+      "document": "complete_resume",
+      "profile": "complete",
+      "readability": {"quality_score": 0.2, "quality_band": "low"},
+      "expected_score": 84,
+      "expected_label": "Strong foundations",
+      "expected_breakdown": {"Text extraction": 4, "Section structure": 25, "Work-history detail": 20, "Contact details": 10, "Skills visibility": 10, "Achievement evidence": 15}
+    },
+    {
+      "id": "quality_score_fallback",
+      "description": "Exercises the documented medium-band fallback when no numeric quality score is available.",
+      "document": "complete_resume",
+      "profile": "complete",
+      "readability": {"quality_score": null, "quality_band": "medium"},
+      "expected_score": 92,
+      "expected_label": "Strong foundations",
+      "expected_breakdown": {"Text extraction": 12, "Section structure": 25, "Work-history detail": 20, "Contact details": 10, "Skills visibility": 10, "Achievement evidence": 15}
+    },
+    {
+      "id": "missing_contact_parse",
+      "description": "Simulates a parser failing to return contact fields that are visible in the source text.",
+      "document": "complete_resume",
+      "profile": "without_contact_signals",
+      "readability": {"quality_score": 0.98, "quality_band": "high"},
+      "expected_score": 90,
+      "expected_label": "Strong foundations",
+      "expected_breakdown": {"Text extraction": 20, "Section structure": 25, "Work-history detail": 20, "Contact details": 0, "Skills visibility": 10, "Achievement evidence": 15}
+    },
+    {
+      "id": "early_career_resume",
+      "description": "Covers an early-career resume with education, a project, and no work history.",
+      "document": "early_career_resume",
+      "profile": "early_career",
+      "readability": {"quality_score": 0.85, "quality_band": "high"},
+      "expected_score": 46,
+      "expected_label": "Several opportunities",
+      "expected_breakdown": {"Text extraction": 17, "Section structure": 13, "Work-history detail": 0, "Contact details": 5, "Skills visibility": 10, "Achievement evidence": 1}
+    },
+    {
+      "id": "sparse_resume",
+      "description": "Low-quality sparse text with no recognized section or profile evidence.",
+      "document": "sparse_resume",
+      "profile": "minimal",
+      "readability": {"quality_score": 0.2, "quality_band": "low"},
+      "expected_score": 4,
+      "expected_label": "A useful starting point",
+      "expected_breakdown": {"Text extraction": 4, "Section structure": 0, "Work-history detail": 0, "Contact details": 0, "Skills visibility": 0, "Achievement evidence": 0}
+    },
+    {
+      "id": "little_achievement_evidence",
+      "description": "Keeps structure and parser fields while removing measurable outcomes and most action verbs.",
+      "document": "achievement_light_resume",
+      "profile": "complete",
+      "readability": {"quality_score": 0.98, "quality_band": "high"},
+      "expected_score": 86,
+      "expected_label": "Strong foundations",
+      "expected_breakdown": {"Text extraction": 20, "Section structure": 25, "Work-history detail": 20, "Contact details": 10, "Skills visibility": 10, "Achievement evidence": 1}
+    },
+    {
+      "id": "skills_heading_without_parsed_skills",
+      "description": "Confirms that a skills heading still earns its section signal when Affinda returns no skills.",
+      "document": "complete_resume",
+      "profile": "complete_without_parsed_skills",
+      "readability": {"quality_score": 0.98, "quality_band": "high"},
+      "expected_score": 95,
+      "expected_label": "Strong foundations",
+      "expected_breakdown": {"Text extraction": 20, "Section structure": 25, "Work-history detail": 20, "Contact details": 10, "Skills visibility": 5, "Achievement evidence": 15}
+    },
+    {
+      "id": "basic_section_set",
+      "description": "Confirms section points when experience, education, and skills are present without optional sections.",
+      "document": "basic_sections_resume",
+      "profile": "basic_sections",
+      "readability": {"quality_score": 0.85, "quality_band": "high"},
+      "expected_score": 86,
+      "expected_label": "Strong foundations",
+      "expected_breakdown": {"Text extraction": 17, "Section structure": 14, "Work-history detail": 20, "Contact details": 10, "Skills visibility": 10, "Achievement evidence": 15}
+    }
+  ]
+}
