@@ -22,7 +22,7 @@ services:
       - key: SUPPORT_EMAIL
         sync: false
       - key: TRIAL_SIGNUPS_ENABLED
-        value: "false"
+        value: "true"
       - key: TRIAL_ALLOWED_EMAILS
         sync: false
       - key: TRIAL_ACCOUNT_REQUESTS_PER_HOUR

@@ -78,7 +78,7 @@ def env_bool(name, default):
     return value.strip().lower() in ("1", "true", "yes", "on")
 
 
-TRIAL_SIGNUPS_ENABLED = env_bool("TRIAL_SIGNUPS_ENABLED", not IS_RENDER)
+TRIAL_SIGNUPS_ENABLED = env_bool("TRIAL_SIGNUPS_ENABLED", True)
 TRIAL_ALLOWED_EMAILS = {
     item.strip().lower()
     for item in os.getenv("TRIAL_ALLOWED_EMAILS", "").split(",")
