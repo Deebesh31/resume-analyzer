@@ -45,9 +45,10 @@ The repository includes [`render.yaml`](render.yaml) for a Python web service. R
 
 1. Push this repository to a Git provider and connect it in Render.
 2. Create a Blueprint from the repository so Render reads `render.yaml`.
-3. When prompted, enter `GEMINI_API_KEY` and a strong `APP_PASSWORD`. Keep both in Render's environment settings.
-4. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration.
-5. Wait for the service health check at `/health` and open its Render URL.
+3. If you already created a Render web service manually, update its Start Command under **Settings → Build & Deploy** to `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120`; otherwise it may keep using an old Streamlit command.
+4. When prompted, enter `GEMINI_API_KEY` and a strong `APP_PASSWORD`. Keep both in Render's environment settings.
+5. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration.
+6. Wait for the service health check at `/health` and open its Render URL.
 
 The Render configuration selects the free web-service plan. Gemini API usage is separate and may incur charges. The shared password restricts access, while each browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small private workspace; they are not a substitute for account-based quotas on a public multi-user product.
 
