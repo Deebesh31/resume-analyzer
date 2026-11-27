@@ -15,10 +15,24 @@ services:
         value: gpt-5.4-mini
       - key: OPENAI_REASONING_EFFORT
         value: low
+      - key: OPENAI_MAX_OUTPUT_TOKENS
+        value: "2000"
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPPORT_EMAIL
+        sync: false
+      - key: TRIAL_SIGNUPS_ENABLED
+        value: "false"
+      - key: TRIAL_ALLOWED_EMAILS
+        sync: false
+      - key: TRIAL_ACCOUNT_REQUESTS_PER_HOUR
+        value: "6"
+      - key: TRIAL_IP_REQUESTS_PER_HOUR
+        value: "20"
       - key: AFFINDA_API_KEY
         sync: false
       - key: AFFINDA_API_BASE_URL
-        value: https://resume-parser.affinda.com
+        value: https://resume-parser.eu1.affinda.com
       - key: AFFINDA_ORGANIZATION_ID
         sync: false
       - key: AUTH0_DOMAIN

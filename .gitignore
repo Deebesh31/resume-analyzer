@@ -10,10 +10,14 @@ wheels/
 .venv/
 venv/
 env/
+instance/
+*.sqlite3
+*.db
 
 # Environment variables (API keys, secrets)
 .env
 .env.local
+user_data.json
 
 # IDE/Editor files (optional but recommended)
 .vscode/

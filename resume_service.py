@@ -1,6 +1,7 @@
 """Resume analysis operations shared by the web routes."""
 
 import json
+import contextvars
 import mimetypes
 import os
 import re
@@ -13,6 +14,8 @@ import requests
 
 
 RETRYABLE_OPENAI_STATUS_CODES = {408, 409, 429, 500, 502, 503, 504}
+MAX_RESUME_TEXT_CHARS = 30_000
+REQUEST_DEADLINE = contextvars.ContextVar("resumate_request_deadline", default=None)
 ANALYSIS_MODES = ("Quick Scan", "Standard Analysis", "Deep Dive", "Document & Keyword Scan")
 FOCUS_AREAS = (
     "Content Quality",
@@ -44,6 +47,19 @@ class AffindaParserError(RuntimeError):
         self.status_code = status_code
 
 
+def set_request_deadline(seconds):
+    return REQUEST_DEADLINE.set(time.monotonic() + seconds)
+
+
+def reset_request_deadline(token):
+    REQUEST_DEADLINE.reset(token)
+
+
+def request_seconds_remaining(default=105.0):
+    deadline = REQUEST_DEADLINE.get()
+    return max(0.0, deadline - time.monotonic()) if deadline is not None else default
+
+
 def generate_openai_content(contents):
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
@@ -56,33 +72,45 @@ def generate_openai_content(contents):
         raise OpenAIConfigurationError(
             "OPENAI_REASONING_EFFORT must be none, low, medium, high, or xhigh."
         )
+    try:
+        max_output_tokens = int(os.getenv("OPENAI_MAX_OUTPUT_TOKENS", "2000"))
+    except ValueError as error:
+        raise OpenAIConfigurationError("OPENAI_MAX_OUTPUT_TOKENS must be an integer from 256 to 4096.") from error
+    if not 256 <= max_output_tokens <= 4096:
+        raise OpenAIConfigurationError("OPENAI_MAX_OUTPUT_TOKENS must be an integer from 256 to 4096.")
 
     model_names = [primary_model]
     if fallback_model and fallback_model != primary_model:
         model_names.append(fallback_model)
 
-    client = OpenAI(api_key=api_key, timeout=110.0, max_retries=0)
     for index, model_name in enumerate(model_names):
+        remaining = request_seconds_remaining()
+        if remaining < 2:
+            raise RuntimeError("The request processing time limit was reached.")
         try:
-            response = client.responses.create(
-                model=model_name,
-                input=contents,
-                reasoning={"effort": reasoning_effort},
-                store=False,
-            )
+            with OpenAI(api_key=api_key, timeout=min(55.0, remaining - 1), max_retries=0) as client:
+                response = client.responses.create(
+                    model=model_name,
+                    input=contents,
+                    reasoning={"effort": reasoning_effort},
+                    max_output_tokens=max_output_tokens,
+                    store=False,
+                )
         except APIStatusError as error:
             is_retryable = error.status_code in RETRYABLE_OPENAI_STATUS_CODES
             has_fallback = index + 1 < len(model_names)
-            if is_retryable and has_fallback:
+            if is_retryable and has_fallback and request_seconds_remaining() > 2:
                 continue
             raise RuntimeError(f"OpenAI request failed with status {error.status_code}.") from None
         except APIConnectionError:
             raise RuntimeError("Could not connect to the OpenAI API. Please try again shortly.") from None
 
+        if response.status == "incomplete":
+            raise RuntimeError("The generated response reached its configured output limit.")
         output_text = (response.output_text or "").strip()
         if output_text:
             return output_text
-        if index + 1 < len(model_names):
+        if index + 1 < len(model_names) and request_seconds_remaining() > 2:
             continue
         raise RuntimeError("The OpenAI model returned an empty response.") from None
 
@@ -321,7 +349,7 @@ def _affinda_request(filename, file_bytes):
             "Affinda is not configured. Add AFFINDA_API_KEY in your local .env file and Render environment settings.",
             503,
         )
-    base_url = os.getenv("AFFINDA_API_BASE_URL", "https://resume-parser.affinda.com").strip().rstrip("/")
+    base_url = os.getenv("AFFINDA_API_BASE_URL", "https://resume-parser.eu1.affinda.com").strip().rstrip("/")
     if not base_url.startswith("https://"):
         raise AffindaParserError("AFFINDA_API_BASE_URL must be an https:// URL from your Affinda region.", 503)
 
@@ -334,13 +362,19 @@ def _affinda_request(filename, file_bytes):
     url = f"{base_url}/v1/resumes/parse"
 
     for attempt in range(2):
+        remaining = request_seconds_remaining()
+        if remaining < 2:
+            raise AffindaParserError("The request processing time limit was reached. Please try again.", 503)
+        call_budget = min(25.0, remaining - 1.0)
+        connect_timeout = min(5.0, call_budget * 0.2)
+        read_timeout = max(1.0, call_budget - connect_timeout)
         try:
             response = requests.post(
                 url,
                 headers=headers,
                 params=params,
                 files={"file": (filename, file_bytes, content_type)},
-                timeout=(8, 45),
+                timeout=(connect_timeout, read_timeout),
             )
         except requests.Timeout as error:
             raise AffindaParserError("Affinda took too long to parse this file. Please try again.", 503) from error
@@ -360,13 +394,13 @@ def _affinda_request(filename, file_bytes):
         if attempt == 0 and (
             response.status_code in (429, 502, 503, 504)
             or error_code in ("rate_limited", "queue_full", "queue_timeout", "ocr_queue_full", "parser_unavailable")
-        ):
+        ) and request_seconds_remaining() > 27:
             retry_after = response.headers.get("Retry-After", "0")
             try:
                 delay = min(max(float(retry_after), 0.25), 2.0)
             except ValueError:
                 delay = 0.5
-            time.sleep(delay)
+            time.sleep(min(delay, max(0.0, request_seconds_remaining() - 1.0)))
             continue
 
         if error_code == "unauthorized":
@@ -405,6 +439,10 @@ def extract_resume_document(filename, file_bytes):
     text = str(data.get("rawText") or "").strip()
     if not text:
         raise AffindaParserError("Affinda did not return readable resume text. Try a different file.", 422)
+    if len(text) > MAX_RESUME_TEXT_CHARS:
+        raise ValueError(
+            f"This resume extracts to more than {MAX_RESUME_TEXT_CHARS:,} characters. Shorten the document and try again."
+        )
 
     profile = _affinda_profile(text, data)
     document_meta = meta.get("document") or {}

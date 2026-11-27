@@ -2,6 +2,8 @@
 
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || "";
 const historyEntries = [];
+let historyLoaded = false;
+let historyLoading = false;
 const downloads = { analysis: "", fullReport: "", match: "", letter: "", tool: "" };
 let activeView = "home";
 
@@ -28,7 +30,10 @@ function activateView(name, moveFocus = false) {
     panel.classList.toggle("is-visible", active);
   });
   window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
-  if (name === "history") renderHistory();
+  if (name === "history") {
+    if (historyLoaded) renderHistory();
+    else loadHistory();
+  }
   if (name !== "home") selectEngineCapability(name, false);
   else selectEngineCapability(activeCapability, true);
   revealView(name);
@@ -61,7 +66,7 @@ const engineCapabilities = {
   analyze: { title: "Resume review", copy: "A clear view of the strengths and opportunities in your experience.", action: "Open resume review" },
   match: { title: "Job match", copy: "Bring a job description alongside your experience to see useful overlap.", action: "Explore a job match" },
   letter: { title: "Cover letter", copy: "Shape a relevant first draft around your experience and the role.", action: "Draft a cover letter" },
-  history: { title: "History", copy: "Keep recent reviews together while this browser tab stays open.", action: "View session history" },
+  history: { title: "History", copy: "Keep resume reviews saved to your account.", action: "View saved history" },
   tools: { title: "Resume tools", copy: "Make focused edits to bullets, achievements, sections, and interview prep.", action: "Explore resume tools" },
 };
 const engineNodes = [...document.querySelectorAll("[data-engine-view]")];
@@ -160,6 +165,7 @@ async function postForm(form, endpoint) {
   let payload;
   try { payload = await response.json(); }
   catch { throw new Error("The server returned an unreadable response."); }
+  if (payload.remaining_usage) updateUsage(payload.remaining_usage);
   if (!response.ok) throw new Error(payload.error || "The request could not be completed.");
   return payload;
 }
@@ -170,6 +176,7 @@ function updateUsage(usage) {
     resume_analysis: "usage-resume",
     job_match: "usage-match",
     cover_letter: "usage-letter",
+    resume_tools: "usage-tools",
   };
   Object.entries(targets).forEach(([key, id]) => {
     if (!Object.hasOwn(usage, key)) return;
@@ -374,7 +381,7 @@ function animateScore(score) {
   window.gsap.fromTo(marker, { scale: 0.25, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.48, delay: 0.82, ease: "back.out(2.2)", clearProps: "transform,opacity" });
 }
 
-function renderResumeResult(result) {
+function renderResumeResult(result, { recordHistory = true } = {}) {
   document.getElementById("analysis-results").hidden = false;
   const overview = document.getElementById("analysis-overview");
   const scoreCard = document.querySelector(".score-card");
@@ -424,7 +431,7 @@ function renderResumeResult(result) {
       warnings.append(item);
     });
     const preview = document.getElementById("extracted-text-preview");
-    const previewText = result.extracted_text_preview || "No extracted text preview was returned.";
+    const previewText = result.extracted_text_preview || "The full extracted text is not saved in account history.";
     preview.textContent = `${previewText}${result.text_preview_truncated ? "\n\n[Preview shortened]" : ""}`;
   }
   const metrics = document.getElementById("resume-metrics");
@@ -452,21 +459,32 @@ function renderResumeResult(result) {
   setProse("analysis-body", analysis);
   downloads.analysis = analysis;
   downloads.fullReport = fullReport;
-  addHistoryEntry({
-    filename,
-    score,
-    stats: result.stats,
-    readability: result.readability,
-    analysis,
-    fullReport,
-    date: new Date().toLocaleString(),
-  });
+  if (recordHistory) {
+    const historyStatus = document.getElementById("analysis-history-status");
+    if (result.history_entry) addHistoryEntry(result.history_entry);
+    if (historyStatus) {
+      historyStatus.textContent = result.history_saved
+        ? "Saved to your account history."
+        : "This review is available now, but could not be saved to account history.";
+      historyStatus.hidden = false;
+    }
+  }
 }
 
 function addHistoryEntry(entry) {
-  historyEntries.unshift({ ...entry, filename: stripEmoji(entry.filename || ""), analysis: stripEmoji(entry.analysis || ""), fullReport: stripEmoji(entry.fullReport || "") });
-  if (historyEntries.length > 3) historyEntries.pop();
-  renderHistory();
+  if (!entry) return;
+  const sanitized = { ...entry, filename: stripEmoji(entry.filename || ""), analysis: stripEmoji(entry.analysis || ""), full_report: stripEmoji(entry.full_report || "") };
+  const existingIndex = historyEntries.findIndex((item) => item.id && item.id === sanitized.id);
+  if (existingIndex >= 0) historyEntries.splice(existingIndex, 1);
+  historyEntries.unshift(sanitized);
+  if (historyEntries.length > 25) historyEntries.length = 25;
+  if (historyLoaded) renderHistory();
+}
+
+function formatHistoryDate(entry) {
+  if (entry.created_at) return new Date(entry.created_at * 1000).toLocaleString();
+  const parsed = Date.parse(entry.date || "");
+  return Number.isNaN(parsed) ? "Saved review" : new Date(parsed).toLocaleString();
 }
 
 function renderHistory() {
@@ -474,7 +492,20 @@ function renderHistory() {
   const empty = document.getElementById("history-empty");
   const compare = document.getElementById("comparison-panel");
   const clear = document.getElementById("clear-history");
+  const status = document.getElementById("history-status");
+  const retry = document.getElementById("retry-history");
   list.replaceChildren();
+  if (!historyLoaded) {
+    empty.hidden = true;
+    compare.hidden = true;
+    clear.hidden = true;
+    status.hidden = false;
+    status.textContent = historyLoading ? "Loading saved reviews…" : "Saved history has not loaded yet.";
+    retry.hidden = historyLoading;
+    return;
+  }
+  status.hidden = true;
+  retry.hidden = true;
   empty.hidden = historyEntries.length > 0;
   compare.hidden = historyEntries.length < 2;
   clear.hidden = historyEntries.length === 0;
@@ -486,23 +517,63 @@ function renderHistory() {
     const title = document.createElement("strong");
     title.textContent = stripEmoji(entry.filename || "Resume review");
     const date = document.createElement("small");
-    date.textContent = entry.date;
+    date.textContent = formatHistoryDate(entry);
     main.append(title, date);
     const score = document.createElement("span");
     score.className = "history-entry-score";
     score.textContent = Number.isFinite(entry.score) ? `${entry.score}/100 structure` : (entry.readability?.status || "Review complete");
     const actions = document.createElement("div");
     actions.className = "history-actions";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "button button-secondary button-small";
+    open.textContent = "Open review";
+    open.addEventListener("click", () => {
+      activateView("analyze");
+      renderResumeResult(entry, { recordHistory: false });
+      document.getElementById("analysis-results").hidden = false;
+      document.getElementById("analysis-history-status").textContent = "Loaded from your saved account history.";
+      document.getElementById("analysis-history-status").hidden = false;
+      document.getElementById("analysis-results").scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
+    });
     const download = document.createElement("button");
     download.type = "button";
     download.className = "button button-secondary button-small";
     download.textContent = "Download";
-    download.addEventListener("click", () => downloadText(entry.fullReport || entry.analysis, `resume-analysis-${index + 1}.txt`));
-    actions.append(download);
+    download.addEventListener("click", () => downloadText(entry.full_report || entry.analysis, `resume-analysis-${index + 1}.txt`));
+    actions.append(open, download);
     row.append(main, score, actions);
     list.append(row);
   });
   if (historyEntries.length >= 2) populateCompareSelects();
+}
+
+async function loadHistory() {
+  if (historyLoading || historyLoaded) return;
+  historyLoading = true;
+  renderHistory();
+  try {
+    const response = await fetch("/api/history", {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    });
+    if (response.status === 401) {
+      window.location.assign("/login");
+      return;
+    }
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "Saved history could not be loaded.");
+    historyEntries.splice(0, historyEntries.length, ...(payload.entries || []));
+    historyLoaded = true;
+    historyLoading = false;
+    renderHistory();
+  } catch (error) {
+    historyLoading = false;
+    const status = document.getElementById("history-status");
+    status.textContent = error.message || "Saved history could not be loaded. Try again.";
+    status.hidden = false;
+    document.getElementById("retry-history").hidden = false;
+  }
 }
 
 function populateCompareSelects() {
@@ -513,7 +584,7 @@ function populateCompareSelects() {
     historyEntries.forEach((entry, index) => {
       const option = document.createElement("option");
       option.value = String(index);
-      option.textContent = `${stripEmoji(entry.filename || "Resume")} · ${entry.date}`;
+      option.textContent = `${stripEmoji(entry.filename || "Resume")} · ${formatHistoryDate(entry)}`;
       select.append(option);
     });
     if ([...select.options].some((option) => option.value === previous)) select.value = previous;
@@ -732,6 +803,12 @@ async function connectForm({ formId, endpoint, loadingId, resultId, errorId, ren
   const form = document.getElementById(formId);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const processingConsent = form.querySelector('[name="processing_consent"]');
+    if (processingConsent && !processingConsent.checked) {
+      setError(errorId, "Confirm the data-processing notice before continuing.");
+      processingConsent.focus();
+      return;
+    }
     document.getElementById(resultId).hidden = true;
     setLoading(form, loadingId, resultId, errorId, true);
     try {
@@ -748,6 +825,14 @@ async function connectForm({ formId, endpoint, loadingId, resultId, errorId, ren
     }
   });
 }
+
+document.querySelectorAll(".account-data-form").forEach((form) => {
+  form.addEventListener("submit", (event) => {
+    if (!window.confirm("Delete your saved resume history and trial usage data, then sign out? Provider records are managed separately.")) {
+      event.preventDefault();
+    }
+  });
+});
 
 function animateResults(resultId) {
   if (prefersReducedMotion() || !window.gsap) return;
@@ -826,10 +911,28 @@ connectForm({
 });
 
 document.getElementById("compare-button").addEventListener("click", renderComparison);
-document.getElementById("clear-history").addEventListener("click", () => {
-  if (!historyEntries.length || !window.confirm("Clear the resume reviews held in this browser tab? This cannot be undone.")) return;
-  historyEntries.length = 0;
-  renderHistory();
+document.getElementById("retry-history").addEventListener("click", loadHistory);
+document.getElementById("clear-history").addEventListener("click", async () => {
+  if (!historyEntries.length || !window.confirm("Permanently delete all saved resume reviews for this account? This cannot be undone.")) return;
+  const button = document.getElementById("clear-history");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/history/clear", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "X-CSRF-Token": csrfToken, Accept: "application/json" },
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "Saved history could not be cleared.");
+    historyEntries.length = 0;
+    renderHistory();
+  } catch (error) {
+    const status = document.getElementById("history-status");
+    status.textContent = error.message || "Saved history could not be cleared. Try again.";
+    status.hidden = false;
+  } finally {
+    button.disabled = false;
+  }
 });
 
 if (window.gsap && !prefersReducedMotion()) {

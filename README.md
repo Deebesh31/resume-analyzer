@@ -10,8 +10,8 @@ ResuMate is a Flask web app for reviewing resumes, comparing a resume with a job
 - Transparent resume structure score, extraction signals, and evidence-backed written feedback
 - Cover-letter drafts in five tones
 - Action verb, achievement wording, bullet point, section order, and interview preparation tools
-- In-session analysis history and comparison
-- Google account menu with live remaining usage for the current session
+- Account-saved resume review history with comparison, download, and delete controls
+- Google account menu with per-account trial allowances stored in PostgreSQL on Render
 - OpenAI Responses API using `gpt-5.4`, with an optional `gpt-5.4-mini` fallback for temporary service errors
 
 ResuMate shows a transparent **Structure score** out of 100. It is a deterministic heuristic for text extraction, section structure, work-history details, contact details, skills visibility, and achievement evidence. It is not an employer ATS score, hiring prediction, or measure of candidate quality. The detailed review is separate and must cite exact resume text. Skill coverage uses a maintained list of phrases and is not a complete interpretation of every requirement. Affinda's extracted fields and quality estimates can miss content or formatting problems. Scanned PDFs and images are sent through Affinda's OCR, which processes up to three scanned pages.
@@ -55,9 +55,14 @@ OPENAI_API_KEY=your_openai_api_key
 OPENAI_MODEL=gpt-5.4
 OPENAI_FALLBACK_MODEL=gpt-5.4-mini
 OPENAI_REASONING_EFFORT=low
+OPENAI_MAX_OUTPUT_TOKENS=2000
 AFFINDA_API_KEY=your_affinda_api_key
-AFFINDA_API_BASE_URL=https://resume-parser.affinda.com
+AFFINDA_API_BASE_URL=https://resume-parser.eu1.affinda.com
 FLASK_SECRET_KEY=replace_with_a_random_secret
+SUPPORT_EMAIL=your_support_email@example.com
+TRIAL_SIGNUPS_ENABLED=true
+TRIAL_ACCOUNT_REQUESTS_PER_HOUR=6
+TRIAL_IP_REQUESTS_PER_HOUR=20
 AUTH0_DOMAIN=your-tenant.region.auth0.com
 AUTH0_CLIENT_ID=your_auth0_application_client_id
 AUTH0_CLIENT_SECRET=your_auth0_application_client_secret
@@ -65,9 +70,11 @@ AUTH0_CALLBACK_URL=http://127.0.0.1:5000/auth/callback
 AUTH0_LOGOUT_RETURN_URL=http://127.0.0.1:5000/login
 ```
 
-`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` come from the Auth0 application settings. `AUTH0_CALLBACK_URL` and `AUTH0_LOGOUT_RETURN_URL` must exactly match the URLs allowed in Auth0. Create an Affinda Resume Parser account in one region and make an API key in that region's console. Set `AFFINDA_API_BASE_URL` to the matching regional host; the example uses Asia Pacific. If your Affinda account has multiple Resume Parser organizations, also set `AFFINDA_ORGANIZATION_ID`. `FLASK_SECRET_KEY` signs the session cookie; keep it secret and use a different value in each environment. Never commit `.env` or put secrets in source files.
+`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` come from the Auth0 application settings. `AUTH0_CALLBACK_URL` and `AUTH0_LOGOUT_RETURN_URL` must exactly match the URLs allowed in Auth0. Create an Affinda Resume Parser account in one region and make an API key in that region's console. Set `AFFINDA_API_BASE_URL` to the matching regional host; this project defaults to EU1, matching the configured ResuMate account. If your Affinda account has multiple Resume Parser organizations, also set `AFFINDA_ORGANIZATION_ID`. `FLASK_SECRET_KEY` signs the session cookie; keep it secret and use a different value in each environment. Never commit `.env` or put secrets in source files.
 
-Create an OpenAI API key in the OpenAI API platform and add it as `OPENAI_API_KEY`. API access and usage billing are separate from a ChatGPT subscription. `OPENAI_MODEL` defaults to `gpt-5.4`; `OPENAI_FALLBACK_MODEL` is tried only after temporary rate-limit or server errors. Set it to an empty value to disable fallback. `OPENAI_REASONING_EFFORT` defaults to `low` and accepts `none`, `low`, `medium`, `high`, or `xhigh`.
+Create an OpenAI API key in the OpenAI API platform and add it as `OPENAI_API_KEY`. API access and usage billing are separate from a ChatGPT subscription. Set a project hard spend limit in the OpenAI API platform; alerts alone do not stop requests. `OPENAI_MODEL` defaults to `gpt-5.4`; `OPENAI_FALLBACK_MODEL` is tried only after temporary rate-limit or server errors. Set it to an empty value to disable fallback. `OPENAI_REASONING_EFFORT` defaults to `low` and accepts `none`, `low`, `medium`, `high`, or `xhigh`. `OPENAI_MAX_OUTPUT_TOKENS` caps generated output and defaults to 2,000.
+
+Local development uses a SQLite file under the ignored `instance/` folder when `DATABASE_URL` is empty. Replace the example `SUPPORT_EMAIL` with an address you monitor before sharing the service. Local sign-ups are enabled by default.
 
 After saving `.env`, start the app with `py main.py`, then open `http://127.0.0.1:5000`.
 
@@ -78,29 +85,33 @@ The repository includes [`render.yaml`](render.yaml) for a Python web service. R
 1. Push this repository to a Git provider and connect it in Render.
 2. Create a Blueprint from the repository so Render reads `render.yaml`.
 3. If you already created a Render web service manually, update its Start Command under **Settings → Build & Deploy** to `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120`; otherwise it may keep using an old Streamlit command.
-4. In the Affinda console, choose a region, create a Resume Parser API key, and copy the key while it is shown. Add it to Render as `AFFINDA_API_KEY`. The Blueprint sets `AFFINDA_API_BASE_URL` to Asia Pacific by default; change it to the same region where you created your key if needed. Add `AFFINDA_ORGANIZATION_ID` only if Affinda requires it for your account.
-5. Add `OPENAI_API_KEY`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` in Render's environment settings. `render.yaml` defaults the model to `gpt-5.4`, the temporary-error fallback to `gpt-5.4-mini`, and reasoning effort to `low`. Keep secrets private.
-6. Set `AUTH0_CALLBACK_URL` to `https://<your-service>.onrender.com/auth/callback` and `AUTH0_LOGOUT_RETURN_URL` to `https://<your-service>.onrender.com/login`.
-7. Add those exact callback and logout URLs, plus `https://<your-service>.onrender.com` as an Allowed Web Origin, to the Auth0 application settings. Use your custom domain if you have one.
-8. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration. If the service still has the old `APP_PASSWORD` variable, remove it; this app no longer uses it.
-9. Wait for the service health check at `/health` and open its Render URL.
+4. In the Affinda console, choose a region, create a Resume Parser API key, and copy the key while it is shown. Add it to Render as `AFFINDA_API_KEY`. The Blueprint defaults to EU1 (`https://resume-parser.eu1.affinda.com`), matching the configured ResuMate account; change it if your key belongs to another region. Add `AFFINDA_ORGANIZATION_ID` only if Affinda requires it for your account.
+5. Create a persistent PostgreSQL database and set its connection URL as `DATABASE_URL` in the web service. The app requires this on Render and fails at startup if it is missing. Do not use Render's free PostgreSQL for a lasting trial; free databases expire after 30 days.
+6. Add `SUPPORT_EMAIL`, `OPENAI_API_KEY`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` in Render's environment settings. `render.yaml` defaults the model to `gpt-5.4`, the temporary-error fallback to `gpt-5.4-mini`, and reasoning effort to `low`. Set a hard project spend limit for OpenAI and monitor Affinda credits. Keep secrets private.
+7. The Blueprint keeps the trial invite-only by default. Set `TRIAL_ALLOWED_EMAILS` to a comma-separated list of verified Google emails for a closed pilot. After the database, provider spend limits, production Google OAuth credentials, and support contact are ready, set `TRIAL_SIGNUPS_ENABLED=true` to allow public sign-ups.
+8. Set `AUTH0_CALLBACK_URL` to `https://<your-service>.onrender.com/auth/callback` and `AUTH0_LOGOUT_RETURN_URL` to `https://<your-service>.onrender.com/login`.
+9. Add those exact callback and logout URLs, plus `https://<your-service>.onrender.com` as an Allowed Web Origin, to the Auth0 application settings. Use your custom domain if you have one. Use Google OAuth credentials that you own; Auth0's shared development credentials are for testing only.
+10. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration. If the service still has the old `APP_PASSWORD` variable, remove it; this app no longer uses it.
+11. Wait for the service health check at `/health` and open its Render URL.
 
-The Render configuration selects the free web-service plan. OpenAI API usage is separate from ChatGPT and may incur charges; Affinda parsing may also use credits. Each authenticated browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small project; they are not a substitute for account-based quotas on a public multi-user product.
+The Render configuration selects the free web-service plan. It can sleep after inactivity, so the first request after sleep may be slow. OpenAI API usage is separate from ChatGPT and may incur charges; Affinda parsing may also use credits. The database-backed trial allows three resume analyses, three job matches, three cover-letter drafts, and three writing-tool requests per account. It also limits requests to six per account per hour and twenty per network per hour. Limits are reserved before provider calls, and a submitted request can use an allowance even if a provider later fails. These controls reduce abuse; they do not replace provider hard spend limits or monitoring.
 
 ## Data handling
 
-- Resume uploads accept PDF, Word, OpenDocument, RTF, plain text, and common image formats up to 20 MB. The request cap includes multipart form overhead.
+- Resume uploads accept PDF, Word, OpenDocument, RTF, plain text, and common image formats up to 20 MB. The request cap includes multipart form overhead, extracted resume text is capped at 30,000 characters, job descriptions at 12,000 characters, and focused tool text at 8,000 characters. Generated responses are limited to 2,000 tokens by default.
 - Resume files are sent from the server to the Affinda Resume Parser API at `AFFINDA_API_BASE_URL`. Affinda documents that its cloud parser does not store the file or parse result; parsing happens in the region associated with the API host. One credit is charged per successful parse. Affinda returns structured JSON for names, contact details, work history, education, certifications, skills, languages, and document extraction quality. Its OCR handles scanned files; only the first three scanned pages are OCR-processed, and only the first 20 pages contribute fields. See [Affinda's quickstart](https://resume-parser.affinda.com/docs/quickstart), [regional hosts](https://resume-parser.affinda.com/docs/regions), and [response schema](https://resume-parser.affinda.com/docs/response-schema).
 - Job matching compares a curated list of skill phrases with the extracted resume text. Required phrases count 3, unprioritized phrases 2, and preferred phrases 1; the coverage percentage applies only to recognized phrases. An optional job-title check is exact-phrase only. Education checks compare degree level but not field of study, and years-of-experience requirements are surfaced for manual comparison. The report shows evidence excerpts so the user can check each match. Terms outside the current phrase list are not included in that percentage.
 - Extracted resume text and job descriptions are sent from the server to OpenAI's Responses API when the user requests feedback. Requests set `store=false`, which disables response application-state storage. Under standard OpenAI API data controls, abuse-monitoring logs may still contain prompts and responses for up to 30 days; API data is not used to train OpenAI models unless the account explicitly opts in. See [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data). Files go to Affinda for parsing; text goes to OpenAI for generated feedback. Review both providers' data-handling terms before uploading sensitive information.
-- This project has no database or resume library. It does not intentionally persist uploads or reports; analysis history stays in the open browser tab and disappears when it is refreshed or closed.
+- On Render, PostgreSQL stores a one-way hash of the Auth0 account identifier with per-feature trial counts and timestamps. It also stores up to 25 recent resume review records per account, including generated feedback and parser findings but not uploaded files or the full extracted resume text. Hourly rate-limit rows use keyed hashes for account and network buckets; raw network addresses are not stored in that table. Local development uses SQLite in the ignored `instance/` folder. Users can clear saved review history separately or delete it with their trial counters from the account menu.
+- Saved resume history remains available across refreshes, sign-outs, and devices until the user clears it or deletes account trial data. Results from job matching, cover letters, and writing tools are not added to this history. Resume reviews require explicit confirmation that they will be saved, with a link to the public [Privacy notice](/privacy) and [Terms of use](/terms).
 - The app does not log resume content. Do not upload sensitive information unless you are comfortable with Affinda's and OpenAI's data-handling terms.
 - Use Render environment variables for secrets. Do not commit `.env` or share `OPENAI_API_KEY`.
 
 ## Project structure
 
 ```text
-app.py                 Flask routes, sign-in, CSRF, session quotas
+app.py                 Flask routes, sign-in, CSRF, trial access and request limits
+usage_store.py         Atomic quotas, hourly rate limits, and saved account history
 resume_service.py      Affinda parsing, structured field mapping, requirement matching, and OpenAI Responses API workflows
 main.py                Local development entry point
 templates/             Flask HTML templates

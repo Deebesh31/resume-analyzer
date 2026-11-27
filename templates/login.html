@@ -20,15 +20,17 @@
       <p class="eyebrow">SIGN IN</p>
       <h1>Welcome to your workspace.</h1>
       <p class="muted">Sign in with your Google account to continue.</p>
-      {% for error in errors %}<div class="error-panel login-error" role="alert">{{ error }}</div>{% endfor %}
-      {% if auth0_configured %}
+      {% for category, message in errors %}<div class="error-panel login-error{% if category == 'success' %} login-success{% endif %}" role="{% if category == 'success' %}status{% else %}alert{% endif %}">{{ message }}</div>{% endfor %}
+      {% if auth0_configured and (not invite_only or trial_has_invites) %}
       <div class="login-actions">
         <a class="button button-dark" href="{{ url_for('login_google') }}">Continue with Google <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></a>
       </div>
       <p class="field-help">Your account is verified securely by Google. No separate workspace password is needed.</p>
+      {% if invite_only %}<p class="field-help">This is a closed trial. Only invited Google accounts can continue.</p>{% endif %}
       {% else %}
-      <div class="error-panel login-error" role="status">Auth0 is not configured yet. Add the Auth0 settings from the setup guide to enable sign-in.</div>
+      <div class="error-panel login-error" role="status">{% if not auth0_configured %}Auth0 is not configured yet. Add the Auth0 settings from the setup guide to enable sign-in.{% else %}The trial is closed to new accounts right now. Contact the trial organizer for access.{% endif %}</div>
       {% endif %}
+      <p class="login-legal">By continuing, you agree to the <a href="{{ url_for('terms') }}">Terms</a> and acknowledge the <a href="{{ url_for('privacy') }}">Privacy notice</a>.{% if support_email %} Questions? <a href="mailto:{{ support_email }}">Contact ResuMate</a>.{% endif %}</p>
     </section>
   </main>
 </body>

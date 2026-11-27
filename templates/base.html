@@ -9,26 +9,26 @@
   <meta name="color-scheme" content="light">
   <title>{% block title %}ResuMate · Career clarity workspace{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
-  <script src="{{ url_for('static', filename='vendor/gsap.min.js') }}" defer></script>
+  {% if auth_user %}<script src="{{ url_for('static', filename='vendor/gsap.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='vendor/Flip.min.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>{% endif %}
 </head>
 <body class="app-page">
   <a class="skip-link" href="#main-content">Skip to content</a>
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="#view-home" data-switch-view="home" aria-label="ResuMate home">
+      <a class="brand" href="{% if auth_user %}#view-home{% else %}{{ url_for('login') }}{% endif %}"{% if auth_user %} data-switch-view="home"{% endif %} aria-label="ResuMate home">
         <span class="brand-mark" aria-hidden="true"><span>R</span><i></i></span>
         <span class="brand-copy"><strong>ResuMate</strong><small>Career clarity workspace</small></span>
       </a>
-      <nav class="main-nav" aria-label="Workspace">
+      {% if auth_user %}<nav class="main-nav" aria-label="Workspace">
         <button class="nav-tab mobile-home-tab is-active" type="button" data-view="home" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5h-6v-6h-5v6h-6z"/></svg><span>Home</span></button>
         <button class="nav-tab" type="button" data-view="analyze">Analyze</button>
         <button class="nav-tab" type="button" data-view="match">Job match</button>
         <button class="nav-tab" type="button" data-view="letter">Cover letter</button>
         <button class="nav-tab" type="button" data-view="history">History</button>
         <button class="nav-tab" type="button" data-view="tools">Resume tools</button>
-      </nav>
+      </nav>{% else %}<nav class="main-nav" aria-label="Account"><a class="nav-tab" href="{{ url_for('login') }}">Sign in</a></nav>{% endif %}
       <div class="topbar-actions">
         {% if auth_user %}
         {% set account_name = auth_user.name or auth_user.email %}
@@ -45,13 +45,18 @@
               <span><strong>{{ account_name }}</strong><small>{{ auth_user.email }}</small></span>
             </div>
             <div class="account-popover-rule"></div>
-            <div class="account-usage-heading"><strong>Usage</strong><span>This session</span></div>
-            <div class="account-usage-list" aria-label="Remaining requests this session">
+            <div class="account-usage-heading"><strong>Trial allowance</strong><span>Per account</span></div>
+            <div class="account-usage-list" aria-label="Remaining requests for this account">
               <div class="account-usage-row"><span>Resume analyses</span><strong><span data-account-usage="resume_analysis">{{ account_usage.get('resume_analysis', 3) }}</span> of 3 left</strong></div>
               <div class="account-usage-row"><span>Job matches</span><strong><span data-account-usage="job_match">{{ account_usage.get('job_match', 3) }}</span> of 3 left</strong></div>
               <div class="account-usage-row"><span>Cover letters</span><strong><span data-account-usage="cover_letter">{{ account_usage.get('cover_letter', 3) }}</span> of 3 left</strong></div>
+              <div class="account-usage-row"><span>Resume tools</span><strong><span data-account-usage="resume_tools">{{ account_usage.get('resume_tools', 3) }}</span> of 3 left</strong></div>
             </div>
-            <p class="account-usage-note">Usage resets when you sign out.</p>
+            <p class="account-usage-note">Submitted requests count even if a provider fails later. Allowance stays with your account after sign-out.</p>
+            <form action="{{ url_for('delete_trial_data') }}" method="post" class="account-data-form">
+              <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+              <button class="account-data-button" type="submit">Delete saved history and trial data</button>
+            </form>
             <form action="{{ url_for('logout') }}" method="post" class="account-logout-form">
               <input type="hidden" name="_csrf" value="{{ csrf_token }}">
               <button class="account-logout-button" type="submit">Sign out</button>
@@ -64,7 +69,7 @@
   </header>
   <main id="main-content" class="page-shell">
     {% block content %}{% endblock %}
-    <footer class="footer-note"><span class="footer-mark" aria-hidden="true">R</span><span>ResuMate</span><span class="footer-dot">·</span><span>ResuMate can make mistakes. Verify suggestions before using them.</span></footer>
+    <footer class="footer-note"><span class="footer-mark" aria-hidden="true">R</span><span>ResuMate</span><span class="footer-dot">·</span><span>ResuMate can make mistakes. Verify suggestions before using them.</span><span class="footer-dot">·</span><a href="{{ url_for('privacy') }}">Privacy</a><a href="{{ url_for('terms') }}">Terms</a></footer>
   </main>
 </body>
 </html>

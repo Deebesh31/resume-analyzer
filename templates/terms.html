@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Terms of use · ResuMate{% endblock %}
+{% block content %}
+<section class="legal-shell">
+  <p class="eyebrow">RESUMATE · TRIAL</p>
+  <h1>Terms of use</h1>
+  <p class="legal-updated">Last updated: 27 November 2026</p>
+  <div class="legal-content">
+    <section>
+      <h2>What ResuMate provides</h2>
+      <p>ResuMate provides experimental resume structure checks, document extraction review, job-description comparisons, cover-letter drafts, and focused writing suggestions. It is a guidance tool, not an employer's applicant-tracking system, hiring decision, legal or career guarantee, or professional recruitment service.</p>
+      <p>The structure score is a ResuMate heuristic. It is not an ATS score, hiring prediction, or probability. ResuMate can make mistakes. Verify every extracted detail, claim, and suggestion against the original documents before relying on or sharing it.</p>
+    </section>
+    <section>
+      <h2>Your responsibilities</h2>
+      <p>Use only accounts and documents you are authorized to use. Do not upload another person's resume without permission. You are responsible for checking generated text, confirming that all statements are true, and deciding whether to use any suggestion.</p>
+      <p>Do not try to bypass trial limits, automate bulk submissions, disrupt the service, or use ResuMate for unlawful or deceptive purposes. Do not include information that is unnecessary for the request.</p>
+    </section>
+    <section>
+      <h2>Trial limits</h2>
+      <p>The current trial allowance is three resume analyses, three job matches, three cover-letter drafts, and three resume-tool requests per Google account. There is also a limit of six service requests per account per hour and twenty per network address per hour. These limits may change to protect the service.</p>
+      <p>An accepted request uses one allowance even if a parser or generation provider later fails. Provider charges or processing can occur before an error is returned.</p>
+    </section>
+    <section>
+      <h2>External providers and availability</h2>
+      <p>ResuMate uses Auth0 for Google sign-in, Affinda for resume parsing, OpenAI for requested written feedback, Render for hosting, and a configured database provider for trial counters. Their services have separate terms, availability, and data-handling rules; see the <a href="{{ url_for('privacy') }}">Privacy notice</a>.</p>
+      <p>The service is provided on a trial basis. It may be changed, interrupted, or withdrawn, and no particular result or availability is guaranteed.</p>
+    </section>
+    <section>
+      <h2>Requests and contact</h2>
+      <p>Your resume review history is saved to your account until you clear it from the History page or delete it with your account data. The app keeps up to 25 recent reviews; this includes written feedback and parser findings but not the original file or full extracted resume text. Removing your stored trial counters also deletes saved history and resets your trial allowance if you sign in again; do not use it to evade the limits. This does not remove information held by external providers. For questions or other requests, contact <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+    </section>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Privacy notice · ResuMate{% endblock %}
+{% block content %}
+<section class="legal-shell">
+  <p class="eyebrow">RESUMATE · PRIVACY</p>
+  <h1>Privacy notice</h1>
+  <p class="legal-updated">Last updated: 27 November 2026</p>
+  <div class="legal-content">
+    <section>
+      <h2>Who operates ResuMate</h2>
+      <p>ResuMate is an experimental career-document service operated by its project owner. For privacy questions or requests, contact <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+    </section>
+    <section>
+      <h2>Information used to provide the service</h2>
+      <p>When you sign in with Google, Auth0 returns your account identifier, name, and verified email address. ResuMate uses these details to create your signed-in browser session. The account identifier is converted to a one-way hash for the trial allowance database; the database does not store your name or email address.</p>
+      <p>To prevent abuse, ResuMate stores hourly request counters for your account and network. The account identifier is hashed, and the network address is stored only as a keyed hash; ResuMate does not store the raw network address in this rate-limit table. Expired hourly rows are cleaned during later trial requests.</p>
+    </section>
+    <section>
+      <h2>Resume and job information</h2>
+      <p>When you request a review, match, draft, or writing suggestion, the uploaded resume is sent to <a href="https://www.affinda.com/privacy-policy" rel="noreferrer">Affinda</a> for parsing. ResuMate sends extracted resume text and, when supplied, job descriptions or other requested text to <a href="https://openai.com/policies/privacy-policy/" rel="noreferrer">OpenAI</a> to prepare the requested feedback. Resume review history is saved to your account so you can return to it after refreshing or signing in on another device. It includes the file name, score and breakdown, statistics, parser findings (which may include short evidence excerpts), and generated written feedback. ResuMate does not save the uploaded file, the full extracted resume text, job descriptions, or results from the other tools. You can clear saved resume history from the History page or delete it with your account's trial data.</p>
+      <p>Files are processed by the Affinda region configured for this service. OpenAI response storage is disabled in requests. Under OpenAI's standard API controls, abuse-monitoring logs may still retain prompts and responses for up to 30 days; API data is not used to train OpenAI models unless the account explicitly opts in. See <a href="https://developers.openai.com/api/docs/guides/your-data" rel="noreferrer">OpenAI API data controls</a>. Each provider handles data under its own terms and retention rules.</p>
+      <p>Do not upload a document unless you are comfortable with this processing and have the right to provide it. Check the original resume and all suggestions yourself.</p>
+    </section>
+    <section>
+      <h2>Trial usage and deletion</h2>
+      <p>ResuMate stores a hashed account identifier, per-feature request counts, and update times to enforce trial limits. It also stores up to 25 recent resume review records in the account database until you clear them. Use “Clear saved history” on the History page to delete those reports. The account menu's “Delete saved history and trial data” action removes both the reports and account counters, then signs you out. If you sign in again afterward, the service creates a new trial allowance; do not use deletion to evade the trial limits. These actions do not erase records already held by Auth0, Affinda, OpenAI, the hosting provider, or the database provider. Hashed hourly rate-limit rows are removed as later requests clean expired windows.</p>
+      <p>For other requests about your ResuMate account or the service, email <a href="mailto:{{ support_email }}">{{ support_email }}</a>. The app does not provide access to, or deletion from, third-party provider systems; contact the relevant provider about records it controls.</p>
+    </section>
+    <section>
+      <h2>Cookies, hosting, and security</h2>
+      <p>ResuMate uses a signed, HTTP-only session cookie for sign-in, request verification, and session security. Render hosts the web service, and a configured PostgreSQL provider stores trial usage counters, short-lived rate-limit counters, and saved resume review history. Providers may process technical request metadata under their own terms.</p>
+      <p>ResuMate uses the submitted information only to provide and protect the requested service. It does not sell resume data or use it for advertising.</p>
+    </section>
+    <section>
+      <h2>Changes to this notice</h2>
+      <p>This notice may change as the trial evolves. The current version will be available at this address with its latest update date.</p>
+    </section>
+  </div>
+</section>
+{% endblock %}
