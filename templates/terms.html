@@ -2,6 +2,7 @@
 {% block title %}Terms of use · ResuMate{% endblock %}
 {% block content %}
 <section class="legal-shell">
+  <a class="legal-back-link" href="{% if auth_user %}{{ url_for('index') }}#view-home{% else %}{{ url_for('login') }}{% endif %}">← {% if auth_user %}Back to workspace{% else %}Back to sign in{% endif %}</a>
   <p class="eyebrow">RESUMATE · TRIAL</p>
   <h1>Terms of use</h1>
   <p class="legal-updated">Last updated: 27 November 2026</p>

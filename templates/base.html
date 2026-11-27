@@ -9,7 +9,7 @@
   <meta name="color-scheme" content="light">
   <title>{% block title %}ResuMate · Career clarity workspace{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
-  {% if auth_user %}<script src="{{ url_for('static', filename='vendor/gsap.min.js') }}" defer></script>
+  {% if auth_user and request.endpoint == 'index' %}<script src="{{ url_for('static', filename='vendor/gsap.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='vendor/Flip.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>{% endif %}
 </head>
@@ -17,20 +17,27 @@
   <a class="skip-link" href="#main-content">Skip to content</a>
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="{% if auth_user %}#view-home{% else %}{{ url_for('login') }}{% endif %}"{% if auth_user %} data-switch-view="home"{% endif %} aria-label="ResuMate home">
+      <a class="brand" href="{% if auth_user and request.endpoint == 'index' %}#view-home{% elif auth_user %}{{ url_for('index') }}#view-home{% else %}{{ url_for('login') }}{% endif %}"{% if auth_user and request.endpoint == 'index' %} data-switch-view="home"{% endif %} aria-label="ResuMate home">
         <span class="brand-mark" aria-hidden="true"><span>R</span><i></i></span>
         <span class="brand-copy"><strong>ResuMate</strong><small>Career clarity workspace</small></span>
       </a>
-      {% if auth_user %}<nav class="main-nav" aria-label="Workspace">
+      {% if auth_user and request.endpoint == 'index' %}<nav class="main-nav" aria-label="Workspace">
         <button class="nav-tab mobile-home-tab is-active" type="button" data-view="home" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5h-6v-6h-5v6h-6z"/></svg><span>Home</span></button>
         <button class="nav-tab" type="button" data-view="analyze">Analyze</button>
         <button class="nav-tab" type="button" data-view="match">Job match</button>
         <button class="nav-tab" type="button" data-view="letter">Cover letter</button>
         <button class="nav-tab" type="button" data-view="history">History</button>
         <button class="nav-tab" type="button" data-view="tools">Resume tools</button>
+      </nav>{% elif auth_user %}<nav class="main-nav" aria-label="Workspace navigation">
+        <a class="nav-tab mobile-home-tab is-active" href="{{ url_for('index') }}#view-home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5h-6v-6h-5v6h-6z"/></svg><span>Home</span></a>
+        <a class="nav-tab" href="{{ url_for('index') }}#view-analyze">Analyze</a>
+        <a class="nav-tab" href="{{ url_for('index') }}#view-match">Job match</a>
+        <a class="nav-tab" href="{{ url_for('index') }}#view-letter">Cover letter</a>
+        <a class="nav-tab" href="{{ url_for('index') }}#view-history">History</a>
+        <a class="nav-tab" href="{{ url_for('index') }}#view-tools">Resume tools</a>
       </nav>{% else %}<nav class="main-nav" aria-label="Account"><a class="nav-tab" href="{{ url_for('login') }}">Sign in</a></nav>{% endif %}
       <div class="topbar-actions">
-        {% if auth_user %}
+        {% if auth_user and request.endpoint == 'index' %}
         {% set account_name = auth_user.name or auth_user.email %}
         {% set account_name_parts = account_name.split() %}
         <div class="account-control" data-account-control>
@@ -63,6 +70,9 @@
             </form>
           </section>
         </div>
+        {% elif auth_user %}
+          <a class="legal-workspace-link" href="{{ url_for('index') }}#view-home">Back to workspace</a>
+          <form action="{{ url_for('logout') }}" method="post" class="legal-logout-form"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><button type="submit">Sign out</button></form>
         {% endif %}
       </div>
     </div>

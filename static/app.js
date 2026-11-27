@@ -940,3 +940,6 @@ if (window.gsap && !prefersReducedMotion()) {
   window.gsap.fromTo(".engine-card", { autoAlpha: 0, y: 20, scale: 0.985 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.72, delay: 0.1, ease: "power3.out", clearProps: "all" });
 }
 
+const requestedView = window.location.hash.match(/^#view-(home|analyze|match|letter|history|tools)$/);
+if (requestedView) activateView(requestedView[1]);
+
