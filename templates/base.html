@@ -29,10 +29,10 @@
       </nav>
       <div class="topbar-actions">
         <span class="workspace-presence"><i aria-hidden="true"></i> Private workspace</span>
-        {% if password_protected %}
+        {% if auth_user %}
         <form action="{{ url_for('logout') }}" method="post" class="logout-form">
           <input type="hidden" name="_csrf" value="{{ csrf_token }}">
-          <button class="signout-button" type="submit">Sign out <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></button>
+          <button class="signout-button" type="submit" aria-label="Sign out {{ auth_user.email }}">Sign out <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></button>
         </form>
         {% endif %}
       </div>

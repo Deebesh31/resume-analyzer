@@ -14,9 +14,21 @@ A private Flask web app for reviewing resumes, comparing a resume with a job des
 
 The resume score and ATS checks are product heuristics. They do not simulate an employer's ATS or predict hiring outcomes.
 
+## Set up Auth0 sign-in
+
+The app uses Auth0 Universal Login for Google sign-in and passwordless email verification. Create an Auth0 **Regular Web Application**, enable the `google-oauth2` social connection for that application, and enable the passwordless **Email** connection with one-time verification codes for that application. The email connection supports new and returning users.
+
+In the Auth0 application's settings, add these local URLs:
+
+- Allowed Callback URL: `http://127.0.0.1:5000/auth/callback`
+- Allowed Logout URL: `http://127.0.0.1:5000/login`
+- Allowed Web Origin: `http://127.0.0.1:5000`
+
+Auth0's built-in Google credentials and email sender are suitable for initial testing. Before opening the app to real users, configure your own Google OAuth credentials and a production email provider (SMTP) in Auth0; the built-in email sender is intended for testing.
+
 ## Run locally
 
-Requirements: Python 3.11 or later and a Gemini API key.
+Requirements: Python 3.11 or later, a Gemini API key, and an Auth0 application configured as above.
 
 ```powershell
 py -m venv .venv
@@ -24,20 +36,23 @@ py -m venv .venv
 py -m pip install -r requirements.txt
 Copy-Item .env.example .env
 notepad .env
-py main.py
 ```
-
-Open `http://127.0.0.1:5000`.
 
 Set these values in `.env`:
 
 ```env
 GEMINI_API_KEY=your_gemini_api_key
-APP_PASSWORD=choose_a_long_private_workspace_password
 FLASK_SECRET_KEY=replace_with_a_random_secret
+AUTH0_DOMAIN=your-tenant.region.auth0.com
+AUTH0_CLIENT_ID=your_auth0_application_client_id
+AUTH0_CLIENT_SECRET=your_auth0_application_client_secret
+AUTH0_CALLBACK_URL=http://127.0.0.1:5000/auth/callback
+AUTH0_LOGOUT_RETURN_URL=http://127.0.0.1:5000/login
 ```
 
-`APP_PASSWORD` enables the shared-password sign-in gate locally. `FLASK_SECRET_KEY` signs the session cookie; keep it secret and use a different value in each environment. Never commit `.env` or put API keys in source files.
+`AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` come from the Auth0 application settings. `AUTH0_CALLBACK_URL` and `AUTH0_LOGOUT_RETURN_URL` must exactly match the URLs allowed in Auth0. `FLASK_SECRET_KEY` signs the session cookie; keep it secret and use a different value in each environment. Never commit `.env` or put secrets in source files.
+
+After saving `.env`, start the app with `py main.py`, then open `http://127.0.0.1:5000`.
 
 ## Deploy to Render
 
@@ -46,11 +61,13 @@ The repository includes [`render.yaml`](render.yaml) for a Python web service. R
 1. Push this repository to a Git provider and connect it in Render.
 2. Create a Blueprint from the repository so Render reads `render.yaml`.
 3. If you already created a Render web service manually, update its Start Command under **Settings → Build & Deploy** to `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120`; otherwise it may keep using an old Streamlit command.
-4. When prompted, enter `GEMINI_API_KEY` and a strong `APP_PASSWORD`. Keep both in Render's environment settings.
-5. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration.
-6. Wait for the service health check at `/health` and open its Render URL.
+4. Add `GEMINI_API_KEY`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` in Render's environment settings. Keep secrets private.
+5. Set `AUTH0_CALLBACK_URL` to `https://<your-service>.onrender.com/auth/callback` and `AUTH0_LOGOUT_RETURN_URL` to `https://<your-service>.onrender.com/login`.
+6. Add those exact callback and logout URLs, plus `https://<your-service>.onrender.com` as an Allowed Web Origin, to the Auth0 application settings. Use your custom domain if you have one.
+7. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration. If the service still has the old `APP_PASSWORD` variable, remove it; this app no longer uses it.
+8. Wait for the service health check at `/health` and open its Render URL.
 
-The Render configuration selects the free web-service plan. Gemini API usage is separate and may incur charges. The shared password restricts access, while each browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small private workspace; they are not a substitute for account-based quotas on a public multi-user product.
+The Render configuration selects the free web-service plan. Gemini API usage is separate and may incur charges. Each authenticated browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small private workspace; they are not a substitute for account-based quotas on a public multi-user product.
 
 ## Data handling
 

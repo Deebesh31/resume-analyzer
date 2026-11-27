@@ -9,7 +9,15 @@ services:
     envVars:
       - key: GEMINI_API_KEY
         sync: false
-      - key: APP_PASSWORD
+      - key: AUTH0_DOMAIN
+        sync: false
+      - key: AUTH0_CLIENT_ID
+        sync: false
+      - key: AUTH0_CLIENT_SECRET
+        sync: false
+      - key: AUTH0_CALLBACK_URL
+        sync: false
+      - key: AUTH0_LOGOUT_RETURN_URL
         sync: false
       - key: FLASK_SECRET_KEY
         generateValue: true
