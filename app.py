@@ -161,10 +161,10 @@ def remaining_usage():
 def get_resume_upload(field_name="resume"):
     uploaded = request.files.get(field_name)
     if uploaded is None or not uploaded.filename:
-        raise ValueError("Choose a PDF or TXT resume to continue.")
+        raise ValueError("Choose a PDF, DOCX, or TXT resume to continue.")
     filename = secure_filename(uploaded.filename)
-    if not filename or os.path.splitext(filename)[1].lower() not in (".pdf", ".txt"):
-        raise ValueError("Unsupported file format. Upload a PDF or TXT file.")
+    if not filename or os.path.splitext(filename)[1].lower() not in (".pdf", ".docx", ".txt"):
+        raise ValueError("Unsupported file format. Upload a PDF, DOCX, or TXT file.")
     file_bytes = uploaded.read(MAX_UPLOAD_BYTES + 1)
     if len(file_bytes) > MAX_UPLOAD_BYTES:
         raise ValueError("The resume exceeds the 20 MB file limit.")
@@ -289,9 +289,8 @@ def api_analyze():
             analysis_mode=request.form.get("analysis_mode", "Standard Analysis"),
             focus_areas=focus_areas,
             job_role=request.form.get("job_role", "").strip(),
-            enable_scoring=parse_bool("enable_scoring", True),
             enable_statistics=parse_bool("enable_statistics", True),
-            enable_ats_check=parse_bool("enable_ats_check", True),
+            enable_readability=parse_bool("enable_readability", True),
             enable_action_verbs=parse_bool("enable_action_verbs", False),
         )
         result["remaining_usage"] = remaining_usage()
@@ -311,7 +310,7 @@ def api_job_match():
             filename,
             file_bytes,
             job_description,
-            include_keywords=parse_bool("include_keywords", False),
+            job_title=request.form.get("job_title", "").strip(),
         )
         result["remaining_usage"] = remaining_usage()
         return result

@@ -726,6 +726,42 @@ h3 { margin-bottom: 9px; font-size: 22px; font-weight: 650; line-height: 1.2; }
   .score-card { align-items: flex-start; gap: 13px; padding: 17px 13px; }.score-visual { width: 92px; height: 92px; flex-basis: 92px; }.score-number strong { font-size: 31px; }.score-number span { font-size: 8px; }.score-copy h3 { font-size: 17px; }.score-copy > p:not(.eyebrow) { font-size: 8px; }.score-copy .eyebrow { font-size: 8px; }.score-orbit-dot { top: 8px; right: 10px; width: 8px; height: 8px; }.results-heading h2 { font-size: 25px; }.result-actions .button { width: 100%; }.ats-row { grid-template-columns: 1fr; gap: 8px; }.keyword-columns { grid-template-columns: 1fr; }.keyword-summary { align-items: flex-start; flex-direction: column; gap: 0; }.keyword-summary strong { font-size: 25px; }.document-preview .prose { padding: 22px 17px 30px; }.document-preview-header { padding-inline: 12px; font-size: 7px; }.history-entry { padding: 13px; }.history-entry-main strong { font-size: 9px; }.history-entry-score { font-size: 10px; }
   .footer-dot { display: none; }
 }
+
+/* Evidence-led parsing and job requirement results */
+.readability-card { display: flex; min-height: 190px; align-items: center; gap: 22px; padding: 28px; }
+.readability-mark { display: grid; width: 74px; height: 74px; flex: 0 0 74px; place-items: center; border: 1px solid #e3e8d9; border-radius: 22px; background: #f6f8ef; }
+.readability-mark img { width: 34px; height: 34px; }
+.readability-card h3 { margin: 5px 0 8px; font-size: 23px; }
+.readability-card .muted { margin-bottom: 12px; font-size: 13px; }
+.readability-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+.readability-chip { display: inline-flex; min-height: 29px; align-items: center; padding: 5px 10px; border: 1px solid #e4e7dd; border-radius: 999px; background: #fbfcf7; color: #515c45; font-size: 12px; font-weight: 600; }
+.parse-review-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; margin-top: 22px; }
+.parse-review-grid h4, .keyword-columns h4 { margin: 16px 0 9px; color: var(--ink); font-size: 15px; }
+.parse-review-grid h4:first-child { margin-top: 0; }
+.parse-fields { display: grid; grid-template-columns: minmax(100px, .34fr) minmax(0, 1fr); margin: 0; border-top: 1px solid #eceee7; }
+.parse-fields dt, .parse-fields dd { margin: 0; padding: 10px 8px; border-bottom: 1px solid #eceee7; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.parse-fields dt { color: #626b61; font-weight: 650; }
+.parse-fields dd { color: #343a34; }
+.parse-warnings { display: grid; gap: 9px; margin: 0; padding-left: 20px; color: #5c6559; font-size: 13px; line-height: 1.6; }
+.extracted-preview { margin-top: 22px; border-top: 1px solid #e9ebe4; padding-top: 15px; }
+.extracted-preview summary { color: #596c31; cursor: pointer; font-size: 13px; font-weight: 700; }
+.extracted-preview pre { max-height: 360px; margin: 12px 0 0; padding: 16px; overflow: auto; border: 1px solid #e8eae3; border-radius: 12px; background: #fafbf7; color: #343a34; font: 12px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.keyword-basis { margin: 9px 0 18px; font-size: 12px; line-height: 1.55; }
+.skill-evidence-list { display: grid; gap: 9px; }
+.skill-evidence-item { padding: 12px 14px; border: 1px solid #e8eae3; border-radius: 12px; background: #fcfcf9; }
+.skill-evidence-item > strong { color: var(--ink); font-size: 14px; }
+.skill-priority { display: inline-flex; margin-left: 9px; padding: 3px 7px; border-radius: 999px; background: #f0f2e9; color: #667846; font-size: 10px; font-weight: 700; text-transform: capitalize; }
+.skill-evidence-item p { margin: 7px 0 0; color: #60685f; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+.title-match-evidence { margin: 14px 0 0; padding: 11px 13px; border-radius: 10px; background: #f7f8f2; color: #515a4b; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 680px) {
+  .readability-card { min-height: 0; align-items: flex-start; gap: 15px; padding: 19px; }
+  .readability-mark { width: 54px; height: 54px; flex-basis: 54px; border-radius: 16px; }
+  .readability-mark img { width: 28px; height: 28px; }
+  .readability-card h3 { font-size: 20px; }
+  .parse-review-grid { grid-template-columns: 1fr; gap: 17px; }
+  .parse-fields { grid-template-columns: minmax(88px, .34fr) minmax(0, 1fr); }
+  .parse-fields dt, .parse-fields dd, .parse-warnings { font-size: 12px; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }

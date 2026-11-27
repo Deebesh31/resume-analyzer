@@ -299,98 +299,77 @@ function addMetric(container, label, value, detail = "") {
   container.append(card);
 }
 
-function animateScore(score) {
-  const scoreValue = document.getElementById("score-value");
-  const progress = document.getElementById("score-progress");
-  const scoreCard = document.querySelector(".score-card");
-  const scoreVisual = document.querySelector(".score-visual");
-  const marker = document.querySelector(".score-orbit-dot");
-  const circumference = 301.6;
-  const band = score >= 80 ? "strong" : score >= 60 ? "developing" : "early";
-  const setProgress = (value) => {
-    progress.style.strokeDasharray = String(circumference);
-    progress.style.strokeDashoffset = String(circumference * (1 - value / 100));
-  };
-  const markerRadius = scoreVisual.clientWidth * (48 / 120);
-  const markerAngle = (score / 100) * Math.PI * 2 - Math.PI / 2;
-  marker.style.left = `${scoreVisual.clientWidth / 2 + Math.cos(markerAngle) * markerRadius - marker.offsetWidth / 2}px`;
-  marker.style.top = `${scoreVisual.clientHeight / 2 + Math.sin(markerAngle) * markerRadius - marker.offsetHeight / 2}px`;
-  marker.style.right = "auto";
-
-  scoreCard.dataset.band = band;
-  scoreCard.hidden = false;
-  scoreCard.classList.remove("score-reveal");
-  void scoreCard.offsetWidth;
-  scoreCard.classList.add("score-reveal");
-
-  if (prefersReducedMotion() || !window.gsap) {
-    scoreValue.textContent = String(score);
-    setProgress(score);
-    marker.style.opacity = "1";
-    marker.style.transform = "scale(1)";
+function fillChips(container, values, emptyLabel = "None recognized") {
+  container.replaceChildren();
+  if (!values?.length) {
+    const empty = document.createElement("span");
+    empty.className = "muted";
+    empty.textContent = emptyLabel;
+    container.append(empty);
     return;
   }
-
-  scoreValue.textContent = "0";
-  setProgress(0);
-  const counter = { value: 0 };
-  window.gsap.to(counter, {
-    value: score,
-    duration: 1.55,
-    ease: "power3.out",
-    onUpdate: () => {
-      scoreValue.textContent = String(Math.round(counter.value));
-      setProgress(counter.value);
-    },
+  values.forEach((value) => {
+    const chip = document.createElement("span");
+    chip.className = "readability-chip";
+    chip.textContent = value.replaceAll("_", " ");
+    container.append(chip);
   });
-  window.gsap.fromTo(marker, { scale: 0.25, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.48, delay: 0.9, ease: "back.out(2.2)", clearProps: "transform,opacity" });
+}
+
+function describeReadability(readability, label, summary, chips) {
+  if (!readability) return;
+  document.getElementById(label).textContent = readability.status;
+  const pageText = readability.page_count ? `${readability.page_count} page${readability.page_count === 1 ? "" : "s"}` : "page count unavailable";
+  document.getElementById(summary).textContent = `${readability.format} · ${pageText} · ${readability.word_count} words extracted · ${readability.parser || "Basic document checks"}.`;
+  fillChips(document.getElementById(chips), readability.sections, "No common section headings recognized");
 }
 
 function renderResumeResult(result) {
   document.getElementById("analysis-results").hidden = false;
-  const scoreResults = document.getElementById("score-results");
-  const score = result.score;
+  const overview = document.getElementById("analysis-overview");
   const stats = result.stats;
-  document.querySelector(".score-card").hidden = score === null;
-  scoreResults.hidden = score === null && !stats;
+  const readability = result.readability;
+  overview.hidden = !stats && !readability;
+  document.querySelector(".readability-card").hidden = !readability;
   const filename = stripEmoji(result.filename || "");
   const analysis = stripEmoji(result.analysis || "");
   const fullReport = stripEmoji(result.full_report || "");
   document.getElementById("analysis-filename").textContent = filename;
-  if (score !== null) {
-    const label = score >= 80 ? "Strong foundations" : score >= 60 ? "Room to strengthen" : score >= 40 ? "Several opportunities" : "A useful starting point";
-    document.getElementById("score-label").textContent = label;
-    document.getElementById("score-svg-desc").textContent = `Heuristic score: ${score} out of 100.`;
-    animateScore(score);
+  describeReadability(readability, "readability-label", "readability-summary", "readability-chips");
+  const parseSection = document.getElementById("ats-results");
+  parseSection.hidden = !readability;
+  if (readability) {
+    document.getElementById("ats-status").textContent = readability.status;
+    const fields = document.getElementById("parse-fields");
+    fields.replaceChildren();
+    (readability.profile_fields || []).forEach((field) => {
+      const term = document.createElement("dt");
+      term.textContent = field.label;
+      const definition = document.createElement("dd");
+      definition.textContent = field.found ? `${field.evidence}${field.note ? ` · ${field.note}` : ""}` : field.note;
+      fields.append(term, definition);
+    });
+    fillChips(document.getElementById("parse-sections"), readability.sections, "No common section headings recognized");
+    fillChips(document.getElementById("parse-dates"), readability.date_ranges, "No date ranges recognized");
+    const warnings = document.getElementById("ats-issues");
+    warnings.replaceChildren();
+    (readability.warnings?.length ? readability.warnings : ["No extraction warnings were triggered by these checks."]).forEach((warning) => {
+      const item = document.createElement("li");
+      item.textContent = warning;
+      warnings.append(item);
+    });
+    const preview = document.getElementById("extracted-text-preview");
+    const previewText = result.extracted_text_preview || "No extracted text preview was returned.";
+    preview.textContent = `${previewText}${result.text_preview_truncated ? "\n\n[Preview shortened]" : ""}`;
   }
   const metrics = document.getElementById("resume-metrics");
   metrics.replaceChildren();
   if (stats) {
-    addMetric(metrics, "Word count", String(stats.word_count), "Current resume text");
-    addMetric(metrics, "Action verbs", String(stats.action_verb_count), "Detected by the existing word list");
-    addMetric(metrics, "Numbers detected", String(stats.quantifiable_achievements), "Numeric entries in extracted text");
-    addMetric(metrics, "Contact details", stats.has_email && stats.has_phone ? "Email and phone found" : "Some details not found", "Detection uses the app’s existing patterns");
-    addMetric(metrics, "Sentence count", String(stats.sentence_count));
-    addMetric(metrics, "Avg. sentence length", `${Number(stats.avg_sentence_length).toFixed(1)} words`);
-  }
-  const atsSection = document.getElementById("ats-results");
-  atsSection.hidden = !result.ats;
-  if (result.ats) {
-    document.getElementById("ats-status").textContent = stripEmoji(result.ats.status);
-    document.getElementById("ats-score").textContent = `${result.ats.score}/100 text-check score`;
-    const issues = document.getElementById("ats-issues");
-    issues.replaceChildren();
-    issues.className = "ats-issues";
-    if (result.ats.issues.length) {
-      result.ats.issues.forEach((issue) => {
-        const chip = document.createElement("span");
-        chip.className = "keyword-chip missing";
-        chip.textContent = stripEmoji(issue);
-        issues.append(chip);
-      });
-    } else {
-      issues.textContent = "No major issues found by these text checks.";
-    }
+    addMetric(metrics, "Word count", String(stats.word_count), "Words extracted from the file");
+    addMetric(metrics, "Action verbs", String(stats.action_verb_count), "Exact matches from a small verb list");
+    addMetric(metrics, "Numbers in text", String(stats.quantifiable_achievements), "A count, not a measure of impact");
+    const foundContact = [stats.has_email && "Email", stats.has_phone && "Phone"].filter(Boolean).join(" and ");
+    addMetric(metrics, "Contact details", foundContact || "None detected");
   }
   const verbSection = document.getElementById("verb-results");
   verbSection.hidden = !result.action_verbs;
@@ -410,8 +389,8 @@ function renderResumeResult(result) {
   downloads.fullReport = fullReport;
   addHistoryEntry({
     filename,
-    score: result.score,
     stats: result.stats,
+    readability: result.readability,
     analysis,
     fullReport,
     date: new Date().toLocaleString(),
@@ -445,7 +424,7 @@ function renderHistory() {
     main.append(title, date);
     const score = document.createElement("span");
     score.className = "history-entry-score";
-    score.textContent = entry.score === null ? "Score not shown" : `${entry.score}/100`;
+    score.textContent = entry.readability?.status || "Review complete";
     const actions = document.createElement("div");
     actions.className = "history-actions";
     const download = document.createElement("button");
@@ -488,10 +467,9 @@ function renderComparison() {
   }
   const firstStats = first.stats || {};
   const secondStats = second.stats || {};
-  if (first.score !== null && second.score !== null) addMetric(results, "Structure score", `${second.score}/100`, `${second.score - first.score >= 0 ? "+" : ""}${second.score - first.score} points`);
   addMetric(results, "Word count", String(secondStats.word_count ?? "—"), `${(secondStats.word_count ?? 0) - (firstStats.word_count ?? 0) >= 0 ? "+" : ""}${(secondStats.word_count ?? 0) - (firstStats.word_count ?? 0)}`);
   addMetric(results, "Action verbs", String(secondStats.action_verb_count ?? "—"), `${(secondStats.action_verb_count ?? 0) - (firstStats.action_verb_count ?? 0) >= 0 ? "+" : ""}${(secondStats.action_verb_count ?? 0) - (firstStats.action_verb_count ?? 0)}`);
-  addMetric(results, "Numbers detected", String(secondStats.quantifiable_achievements ?? "—"), `${(secondStats.quantifiable_achievements ?? 0) - (firstStats.quantifiable_achievements ?? 0) >= 0 ? "+" : ""}${(secondStats.quantifiable_achievements ?? 0) - (firstStats.quantifiable_achievements ?? 0)}`);
+  addMetric(results, "Numbers in text", String(secondStats.quantifiable_achievements ?? "—"), `${(secondStats.quantifiable_achievements ?? 0) - (firstStats.quantifiable_achievements ?? 0) >= 0 ? "+" : ""}${(secondStats.quantifiable_achievements ?? 0) - (firstStats.quantifiable_achievements ?? 0)}`);
   results.hidden = false;
 }
 
@@ -502,34 +480,130 @@ function renderKeywords(keywords) {
   if (!keywords) return;
   const title = document.createElement("div");
   title.className = "eyebrow";
-  title.textContent = "Simple word overlap";
+  title.textContent = "RECOGNIZED JOB REQUIREMENTS";
   const summary = document.createElement("div");
   summary.className = "keyword-summary";
   const percentage = document.createElement("strong");
-  percentage.textContent = `${Number(keywords.match_percentage).toFixed(1)}%`;
+  percentage.textContent = keywords.coverage_percent === null ? "—" : `${keywords.coverage_percent}%`;
   const description = document.createElement("span");
   description.className = "muted";
-  description.textContent = "of distinct job-description terms also found in the resume text";
+  description.textContent = keywords.coverage_percent === null
+    ? "No recognized skill phrases found in the pasted job description."
+    : `${keywords.matched_requirement_count} of ${keywords.recognized_requirement_count} recognized skill phrases appear in the resume.`;
   summary.append(percentage, description);
+  const basis = document.createElement("p");
+  basis.className = "muted keyword-basis";
+  basis.textContent = keywords.coverage_basis;
   const columns = document.createElement("div");
   columns.className = "keyword-columns";
-  [["Terms found in both texts", keywords.matching_keywords, "match"], ["Terms not found in resume text", keywords.missing_keywords, "missing"]].forEach(([label, values, className]) => {
+  [["Found in resume text", keywords.matching_skills], ["Not found in resume text", keywords.missing_skills]].forEach(([label, values]) => {
     const group = document.createElement("div");
     const heading = document.createElement("h4");
     heading.textContent = label;
-    const chips = document.createElement("div");
-    chips.className = "keyword-list";
-    if (!values.length) chips.textContent = "None detected";
-    values.forEach((value) => {
-      const chip = document.createElement("span");
-      chip.className = `keyword-chip ${className}`;
-      chip.textContent = stripEmoji(value);
-      chips.append(chip);
+    const list = document.createElement("div");
+    list.className = "skill-evidence-list";
+    if (!values.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "No items in this group.";
+      list.append(empty);
+    }
+    values.forEach((skill) => {
+      const item = document.createElement("article");
+      item.className = "skill-evidence-item";
+      const name = document.createElement("strong");
+      name.textContent = skill.name;
+      const priority = document.createElement("span");
+      priority.className = "skill-priority";
+      priority.textContent = skill.priority;
+      const evidence = document.createElement("p");
+      evidence.textContent = skill.matched
+        ? `Resume evidence: “${skill.resume_evidence}”`
+        : `Not detected in the extracted resume text. Job listing evidence: “${skill.job_evidence}”`;
+      item.append(name, priority, evidence);
+      list.append(item);
     });
-    group.append(heading, chips);
+    group.append(heading, list);
     columns.append(group);
   });
-  panel.append(title, summary, columns);
+  panel.append(title, summary, basis);
+  if (keywords.job_title) {
+    const titleCheck = document.createElement("p");
+    titleCheck.className = "title-match-evidence";
+    titleCheck.textContent = keywords.job_title_match === null
+      ? `Job title check: ${keywords.job_title}`
+      : `Title check for “${keywords.job_title}”: ${keywords.job_title_match ? `found in resume text (“${keywords.job_title_evidence}”)` : "not found as an exact phrase in the resume text"}.`;
+    panel.append(titleCheck);
+  }
+  if (keywords.recognized_requirement_count) panel.append(columns);
+  const extraChecks = [
+    ["Education requested", keywords.education_checks || []],
+    ["Certifications requested", keywords.certification_checks || []],
+  ];
+  extraChecks.forEach(([headingText, entries]) => {
+    if (!entries.length) return;
+    const group = document.createElement("section");
+    group.className = "other-requirements";
+    const heading = document.createElement("h4");
+    heading.textContent = headingText;
+    group.append(heading);
+    const list = document.createElement("div");
+    list.className = "skill-evidence-list";
+    entries.forEach((entry) => {
+      const item = document.createElement("article");
+      item.className = "skill-evidence-item";
+      const name = document.createElement("strong");
+      name.textContent = entry.name;
+      const state = document.createElement("span");
+      state.className = "skill-priority";
+      const educationCheck = headingText === "Education requested";
+      state.textContent = `${entry.priority} · ${entry.matched ? (educationCheck ? "degree level met" : "found") : "not found"}`;
+      const evidence = document.createElement("p");
+      evidence.textContent = entry.matched
+        ? `Resume evidence: “${entry.resume_evidence}”${entry.comparison_note ? ` ${entry.comparison_note}` : ""}`
+        : `Not detected in the extracted resume text. Job listing evidence: “${entry.job_evidence}”`;
+      item.append(name, state, evidence);
+      list.append(item);
+    });
+    group.append(list);
+    panel.append(group);
+  });
+  if (keywords.experience_requirements?.length) {
+    const group = document.createElement("section");
+    group.className = "other-requirements";
+    const heading = document.createElement("h4");
+    heading.textContent = "Experience duration to review";
+    group.append(heading);
+    const note = document.createElement("p");
+    note.className = "muted";
+    note.textContent = "These are shown for manual comparison; ResuMate does not calculate total employment duration from dates.";
+    group.append(note);
+    keywords.experience_requirements.forEach((requirement) => {
+      const item = document.createElement("article");
+      item.className = "skill-evidence-item";
+      item.textContent = requirement;
+      group.append(item);
+    });
+    panel.append(group);
+  }
+}
+
+function renderMatchReadability(readability) {
+  const section = document.getElementById("match-readability");
+  section.hidden = !readability;
+  if (!readability) return;
+  document.getElementById("match-readability-status").textContent = readability.status;
+  fillChips(document.getElementById("match-readability-details"), [
+    `${readability.format} · ${readability.word_count} words extracted · ${readability.parser || "Basic document checks"}`,
+    ...(readability.sections || []).map((sectionName) => sectionName.replaceAll("_", " ")),
+  ], "No common section headings recognized");
+  const warnings = document.getElementById("match-readability-warnings");
+  warnings.replaceChildren();
+  (readability.warnings?.length ? readability.warnings : ["No extraction warnings were triggered by these checks."]).forEach((warning) => {
+    const item = document.createElement("li");
+    item.textContent = warning;
+    warnings.append(item);
+  });
 }
 
 function downloadText(text, filename) {
@@ -619,7 +693,7 @@ connectForm({
 
 connectForm({
   formId: "match-form", endpoint: "/api/job-match", loadingId: "match-loading", resultId: "match-results", errorId: "match-error",
-  render: (result) => { const analysis = stripEmoji(result.analysis || ""); renderKeywords(result.keywords); setProse("match-body", analysis); downloads.match = analysis; },
+  render: (result) => { const analysis = stripEmoji(result.analysis || ""); renderKeywords(result.keywords); renderMatchReadability(result.readability); setProse("match-body", analysis); downloads.match = stripEmoji(result.full_report || analysis); },
 });
 
 connectForm({

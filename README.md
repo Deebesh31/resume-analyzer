@@ -4,16 +4,17 @@ ResuMate is a Flask web app for reviewing resumes, comparing a resume with a job
 
 ## Features
 
-- Resume analysis for PDF and TXT files
-- Existing heuristic resume score, text-based ATS checks, resume statistics, and automated feedback
-- Resume-to-job-description match review and optional simple keyword overlap
+- Resume analysis for PDF, DOCX, and TXT files
+- Document extraction review with entity extraction, section headings, date ranges, and layout warnings
+- Resume-to-job-description comparison with recognized skill phrases, priority weighting, and matching text evidence
+- Descriptive resume statistics and actionable written feedback
 - Cover-letter drafts in five tones
 - Action verb, achievement wording, bullet point, section order, and interview preparation tools
 - In-session analysis history and comparison
 - Google account menu with live remaining usage for the current session
 - Google Gemini model fallback from `gemini-3.8-flash` to `gemini-3.5-flash-lite`
 
-The resume score and ATS checks are product heuristics. They do not simulate an employer's ATS or predict hiring outcomes.
+ResuMate does not produce a general resume score or simulate an employer's applicant tracking system. Skill coverage is calculated only from a maintained list of recognized phrases in the pasted job description; it is not a hiring prediction or a complete interpretation of every requirement. Text extraction, entity labels, and layout warnings are best-effort checks and can miss content or formatting problems. Scanned PDFs without selectable text are not supported; export them as a text-based PDF or DOCX first.
 
 ## Set up Auth0 sign-in
 
@@ -74,7 +75,10 @@ The Render configuration selects the free web-service plan. Google Gemini usage 
 
 ## Data handling
 
-- Resume uploads accept PDF and TXT files up to 20 MB. The request cap includes multipart form overhead.
+- Resume uploads accept PDF, DOCX, and TXT files up to 20 MB. The request cap includes multipart form overhead.
+- PDF parsing uses PyMuPDF and DOCX parsing uses python-docx. PDF text is ordered using page coordinates and a column-aware reading-order heuristic. A local English token-classification model identifies likely names, contact details, titles, employers, qualifications, institutions, skills, certifications, and languages. Its quantized ONNX weights and tokenizer are downloaded lazily from Hugging Face on the first parse and cached by the service. Resume text is processed locally by this parser; it is not sent to Hugging Face. If the model cannot be loaded, ResuMate falls back to basic contact and section checks and shows a notice. Scanned PDFs still require OCR before upload; columns, tables, header/footer content, and image text can be misread.
+- Job matching compares a curated list of skill phrases with the extracted resume text. Required phrases count 3, unprioritized phrases 2, and preferred phrases 1; the coverage percentage applies only to recognized phrases. An optional job-title check is exact-phrase only. Education checks compare degree level but not field of study, and years-of-experience requirements are surfaced for manual comparison. The report shows evidence excerpts so the user can check each match. Terms outside the current phrase list are not included in that percentage.
+- Research basis: [Yu et al. (ACL 2005)](https://aclanthology.org/P05-1062/) segment resumes before extracting detailed fields; [Wei et al. (SIGIR 2020)](https://arxiv.org/abs/2005.11017) show how document layout cues can improve extraction; and [Retyk et al. (HR@RecSys 2023)](https://arxiv.org/abs/2309.07015) study joint section/line and entity/token labeling. ResuMate applies these ideas as coordinate-based PDF reading order, rule-based section headings, and token-level entity extraction; it does not reproduce the full research architectures. The Retyk paper's public companion repository contains feature descriptions, not a ready-to-run trained parser. The [resume NER checkpoint](https://huggingface.co/oksomu/resume-ner) used here is a separate community model licensed under Apache 2.0, pinned in [resume_parser.py](resume_parser.py) to a specific revision. Its model-card benchmark is not an independent evaluation of ResuMate. Before making accuracy claims, evaluate it against a consented, representative set of resumes from the intended users.
 - Resume text and job descriptions are sent from the server to the configured Google Gemini service when the user requests a review.
 - This project has no database or resume library. It does not intentionally persist uploads or reports; analysis history stays in the open browser tab and disappears when it is refreshed or closed.
 - The app does not log resume content. Do not upload sensitive information unless you are comfortable with the configured Gemini provider's data handling terms.
@@ -84,7 +88,8 @@ The Render configuration selects the free web-service plan. Google Gemini usage 
 
 ```text
 app.py                 Flask routes, sign-in, CSRF, session quotas
-resume_service.py      PDF/TXT parsing, existing scoring and Google Gemini workflows
+resume_service.py      PDF/DOCX/TXT extraction, layout checks, requirement matching, and Google Gemini workflows
+resume_parser.py       Local resume entity extraction with a pinned quantized ONNX model
 main.py                Local development entry point
 templates/             Flask HTML templates
 static/                Responsive CSS and browser interactions
