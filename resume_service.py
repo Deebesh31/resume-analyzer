@@ -8,11 +8,11 @@ import time
 import unicodedata
 from datetime import datetime
 
-from google import genai
+from openai import APIConnectionError, APIStatusError, OpenAI
 import requests
 
 
-GEMINI_MODELS = ("gemini-3.8-flash", "gemini-3.5-flash-lite")
+RETRYABLE_OPENAI_STATUS_CODES = {408, 409, 429, 500, 502, 503, 504}
 ANALYSIS_MODES = ("Quick Scan", "Standard Analysis", "Deep Dive", "Document & Keyword Scan")
 FOCUS_AREAS = (
     "Content Quality",
@@ -34,7 +34,7 @@ TOOLS = (
 )
 
 
-class GeminiConfigurationError(RuntimeError):
+class OpenAIConfigurationError(RuntimeError):
     pass
 
 
@@ -44,23 +44,49 @@ class AffindaParserError(RuntimeError):
         self.status_code = status_code
 
 
-def generate_gemini_content(contents):
-    api_key = os.getenv("GEMINI_API_KEY")
+def generate_openai_content(contents):
+    api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
-        raise GeminiConfigurationError("GEMINI_API_KEY is not configured on the server.")
+        raise OpenAIConfigurationError("OPENAI_API_KEY is not configured on the server.")
 
-    client = genai.Client(api_key=api_key)
-    errors = []
-    for model_name in GEMINI_MODELS:
+    primary_model = os.getenv("OPENAI_MODEL", "gpt-5.4").strip() or "gpt-5.4"
+    fallback_model = os.getenv("OPENAI_FALLBACK_MODEL", "").strip()
+    reasoning_effort = os.getenv("OPENAI_REASONING_EFFORT", "low").strip().lower() or "low"
+    if reasoning_effort not in {"none", "low", "medium", "high", "xhigh"}:
+        raise OpenAIConfigurationError(
+            "OPENAI_REASONING_EFFORT must be none, low, medium, high, or xhigh."
+        )
+
+    model_names = [primary_model]
+    if fallback_model and fallback_model != primary_model:
+        model_names.append(fallback_model)
+
+    client = OpenAI(api_key=api_key, timeout=110.0, max_retries=0)
+    for index, model_name in enumerate(model_names):
         try:
-            response = client.models.generate_content(model=model_name, contents=contents)
-            if not response.text:
-                raise RuntimeError("The model returned an empty response.")
-            return response.text
-        except Exception as error:
-            errors.append(f"{model_name}: {error}")
+            response = client.responses.create(
+                model=model_name,
+                input=contents,
+                reasoning={"effort": reasoning_effort},
+                store=False,
+            )
+        except APIStatusError as error:
+            is_retryable = error.status_code in RETRYABLE_OPENAI_STATUS_CODES
+            has_fallback = index + 1 < len(model_names)
+            if is_retryable and has_fallback:
+                continue
+            raise RuntimeError(f"OpenAI request failed with status {error.status_code}.") from None
+        except APIConnectionError:
+            raise RuntimeError("Could not connect to the OpenAI API. Please try again shortly.") from None
 
-    raise RuntimeError("All configured Gemini models failed. " + " | ".join(errors)) from None
+        output_text = (response.output_text or "").strip()
+        if output_text:
+            return output_text
+        if index + 1 < len(model_names):
+            continue
+        raise RuntimeError("The OpenAI model returned an empty response.") from None
+
+    raise RuntimeError("The configured OpenAI models could not complete the request.") from None
 
 
 SECTION_ALIASES = {
@@ -1034,7 +1060,7 @@ def analyze_resume(file_name, file_bytes, analysis_mode="Standard Analysis", foc
     stats = calculate_resume_statistics(text, profile)
     score_result = calculate_structure_score(text, stats, readability, profile)
     prompt = build_resume_prompt(text, stats, readability, profile, score_result, analysis_mode, focus_areas or [], job_role)
-    generated_review = generate_gemini_content(prompt)
+    generated_review = generate_openai_content(prompt)
     analysis = build_verified_review(generated_review, [text])
     return {
         "filename": file_name,
@@ -1063,7 +1089,7 @@ def analyze_job_match(file_name, file_bytes, job_description, job_title=""):
         title_match = title_pattern.search(resume_text)
         keyword_analysis["job_title_match"] = bool(title_match)
         keyword_analysis["job_title_evidence"] = resume_text[max(0, title_match.start() - 80):title_match.end() + 80].replace("\n", " ").strip() if title_match else ""
-    generated_review = generate_gemini_content(build_match_prompt(resume_text, job_description, keyword_analysis, job_title.strip()))
+    generated_review = generate_openai_content(build_match_prompt(resume_text, job_description, keyword_analysis, job_title.strip()))
     analysis = build_verified_review(generated_review, [resume_text, job_description])
     readability = check_document_readability(document["readability"], document["profile"])
     return {
@@ -1080,7 +1106,7 @@ def generate_cover_letter(file_name, file_bytes, job_description, company="", ro
         raise ValueError("The uploaded resume does not contain readable text.")
     if not job_description.strip():
         raise ValueError("Add the job description so the draft has role context.")
-    return generate_gemini_content(build_cover_letter_prompt(resume_text, job_description, company, role, tone))
+    return generate_openai_content(build_cover_letter_prompt(resume_text, job_description, company, role, tone))
 
 
 def generate_tool_output(tool_name, text, file_name=None, file_bytes=None,
@@ -1095,7 +1121,7 @@ def generate_tool_output(tool_name, text, file_name=None, file_bytes=None,
             raise ValueError("The uploaded resume does not contain readable text.")
     elif not text.strip():
         raise ValueError("Enter resume content before running this tool.")
-    return generate_gemini_content(build_tool_prompt(tool_name, text, target_industry, target_role))
+    return generate_openai_content(build_tool_prompt(tool_name, text, target_industry, target_role))
 
 
 def generate_text_report(analysis_text, stats, readability, score_result=None):

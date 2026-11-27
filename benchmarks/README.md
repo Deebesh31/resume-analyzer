@@ -4,7 +4,7 @@
 
 `structure_score_cases.json` is a small, synthetic regression dataset for the deterministic 100-point Structure score. It covers complete and sparse resumes, early-career content, missing parser signals, low extraction quality, the quality-band fallback, and measurable achievement evidence. The source text and parser profiles are fictional; no candidate documents or third-party resume data are stored here.
 
-Run it from the repository root after installing the app's requirements. This local check makes no API calls and needs no Affinda or Gemini key:
+Run it from the repository root after installing the app's requirements. This local check makes no API calls and needs no Affinda or OpenAI key:
 
 ```powershell
 .\.venv\Scripts\python.exe benchmarks\run_structure_score_benchmark.py

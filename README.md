@@ -12,7 +12,7 @@ ResuMate is a Flask web app for reviewing resumes, comparing a resume with a job
 - Action verb, achievement wording, bullet point, section order, and interview preparation tools
 - In-session analysis history and comparison
 - Google account menu with live remaining usage for the current session
-- Google Gemini model fallback from `gemini-3.8-flash` to `gemini-3.5-flash-lite`
+- OpenAI Responses API using `gpt-5.4`, with an optional `gpt-5.4-mini` fallback for temporary service errors
 
 ResuMate shows a transparent **Structure score** out of 100. It is a deterministic heuristic for text extraction, section structure, work-history details, contact details, skills visibility, and achievement evidence. It is not an employer ATS score, hiring prediction, or measure of candidate quality. The detailed review is separate and must cite exact resume text. Skill coverage uses a maintained list of phrases and is not a complete interpretation of every requirement. Affinda's extracted fields and quality estimates can miss content or formatting problems. Scanned PDFs and images are sent through Affinda's OCR, which processes up to three scanned pages.
 
@@ -38,7 +38,7 @@ The app favicon is served at `/static/favicon.svg`. To show it in Auth0's hosted
 
 ## Run locally
 
-Requirements: Python 3.11 or later, a Gemini API key, an Affinda Resume Parser API key, and an Auth0 application configured as above.
+Requirements: Python 3.11 or later, an OpenAI API key, an Affinda Resume Parser API key, and an Auth0 application configured as above.
 
 ```powershell
 py -m venv .venv
@@ -51,7 +51,10 @@ notepad .env
 Set these values in `.env`:
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-5.4
+OPENAI_FALLBACK_MODEL=gpt-5.4-mini
+OPENAI_REASONING_EFFORT=low
 AFFINDA_API_KEY=your_affinda_api_key
 AFFINDA_API_BASE_URL=https://resume-parser.affinda.com
 FLASK_SECRET_KEY=replace_with_a_random_secret
@@ -64,6 +67,8 @@ AUTH0_LOGOUT_RETURN_URL=http://127.0.0.1:5000/login
 
 `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` come from the Auth0 application settings. `AUTH0_CALLBACK_URL` and `AUTH0_LOGOUT_RETURN_URL` must exactly match the URLs allowed in Auth0. Create an Affinda Resume Parser account in one region and make an API key in that region's console. Set `AFFINDA_API_BASE_URL` to the matching regional host; the example uses Asia Pacific. If your Affinda account has multiple Resume Parser organizations, also set `AFFINDA_ORGANIZATION_ID`. `FLASK_SECRET_KEY` signs the session cookie; keep it secret and use a different value in each environment. Never commit `.env` or put secrets in source files.
 
+Create an OpenAI API key in the OpenAI API platform and add it as `OPENAI_API_KEY`. API access and usage billing are separate from a ChatGPT subscription. `OPENAI_MODEL` defaults to `gpt-5.4`; `OPENAI_FALLBACK_MODEL` is tried only after temporary rate-limit or server errors. Set it to an empty value to disable fallback. `OPENAI_REASONING_EFFORT` defaults to `low` and accepts `none`, `low`, `medium`, `high`, or `xhigh`.
+
 After saving `.env`, start the app with `py main.py`, then open `http://127.0.0.1:5000`.
 
 ## Deploy to Render
@@ -74,29 +79,29 @@ The repository includes [`render.yaml`](render.yaml) for a Python web service. R
 2. Create a Blueprint from the repository so Render reads `render.yaml`.
 3. If you already created a Render web service manually, update its Start Command under **Settings → Build & Deploy** to `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120`; otherwise it may keep using an old Streamlit command.
 4. In the Affinda console, choose a region, create a Resume Parser API key, and copy the key while it is shown. Add it to Render as `AFFINDA_API_KEY`. The Blueprint sets `AFFINDA_API_BASE_URL` to Asia Pacific by default; change it to the same region where you created your key if needed. Add `AFFINDA_ORGANIZATION_ID` only if Affinda requires it for your account.
-5. Add `GEMINI_API_KEY`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` in Render's environment settings. Keep secrets private.
+5. Add `OPENAI_API_KEY`, `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, and `AUTH0_CLIENT_SECRET` in Render's environment settings. `render.yaml` defaults the model to `gpt-5.4`, the temporary-error fallback to `gpt-5.4-mini`, and reasoning effort to `low`. Keep secrets private.
 6. Set `AUTH0_CALLBACK_URL` to `https://<your-service>.onrender.com/auth/callback` and `AUTH0_LOGOUT_RETURN_URL` to `https://<your-service>.onrender.com/login`.
 7. Add those exact callback and logout URLs, plus `https://<your-service>.onrender.com` as an Allowed Web Origin, to the Auth0 application settings. Use your custom domain if you have one.
 8. Render generates `FLASK_SECRET_KEY` from the Blueprint configuration. If the service still has the old `APP_PASSWORD` variable, remove it; this app no longer uses it.
 9. Wait for the service health check at `/health` and open its Render URL.
 
-The Render configuration selects the free web-service plan. Google Gemini usage is separate and may incur charges. Each authenticated browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small project; they are not a substitute for account-based quotas on a public multi-user product.
+The Render configuration selects the free web-service plan. OpenAI API usage is separate from ChatGPT and may incur charges; Affinda parsing may also use credits. Each authenticated browser session is limited to three resume analyses, three job matches, and three cover-letter generations. These session limits are suitable for a small project; they are not a substitute for account-based quotas on a public multi-user product.
 
 ## Data handling
 
 - Resume uploads accept PDF, Word, OpenDocument, RTF, plain text, and common image formats up to 20 MB. The request cap includes multipart form overhead.
 - Resume files are sent from the server to the Affinda Resume Parser API at `AFFINDA_API_BASE_URL`. Affinda documents that its cloud parser does not store the file or parse result; parsing happens in the region associated with the API host. One credit is charged per successful parse. Affinda returns structured JSON for names, contact details, work history, education, certifications, skills, languages, and document extraction quality. Its OCR handles scanned files; only the first three scanned pages are OCR-processed, and only the first 20 pages contribute fields. See [Affinda's quickstart](https://resume-parser.affinda.com/docs/quickstart), [regional hosts](https://resume-parser.affinda.com/docs/regions), and [response schema](https://resume-parser.affinda.com/docs/response-schema).
 - Job matching compares a curated list of skill phrases with the extracted resume text. Required phrases count 3, unprioritized phrases 2, and preferred phrases 1; the coverage percentage applies only to recognized phrases. An optional job-title check is exact-phrase only. Education checks compare degree level but not field of study, and years-of-experience requirements are surfaced for manual comparison. The report shows evidence excerpts so the user can check each match. Terms outside the current phrase list are not included in that percentage.
-- Extracted resume text and job descriptions are sent from the server to the configured Google Gemini service when the user requests feedback. Files go to Affinda for parsing; text goes to Google Gemini for feedback. Review both providers' data handling terms before uploading sensitive information.
+- Extracted resume text and job descriptions are sent from the server to OpenAI's Responses API when the user requests feedback. Requests set `store=false`, which disables response application-state storage. Under standard OpenAI API data controls, abuse-monitoring logs may still contain prompts and responses for up to 30 days; API data is not used to train OpenAI models unless the account explicitly opts in. See [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data). Files go to Affinda for parsing; text goes to OpenAI for generated feedback. Review both providers' data-handling terms before uploading sensitive information.
 - This project has no database or resume library. It does not intentionally persist uploads or reports; analysis history stays in the open browser tab and disappears when it is refreshed or closed.
-- The app does not log resume content. Do not upload sensitive information unless you are comfortable with Affinda's and the configured Google Gemini provider's data handling terms.
-- Use Render environment variables for secrets. Do not commit `.env` or share `GEMINI_API_KEY`.
+- The app does not log resume content. Do not upload sensitive information unless you are comfortable with Affinda's and OpenAI's data-handling terms.
+- Use Render environment variables for secrets. Do not commit `.env` or share `OPENAI_API_KEY`.
 
 ## Project structure
 
 ```text
 app.py                 Flask routes, sign-in, CSRF, session quotas
-resume_service.py      Affinda parsing, structured field mapping, requirement matching, and Google Gemini workflows
+resume_service.py      Affinda parsing, structured field mapping, requirement matching, and OpenAI Responses API workflows
 main.py                Local development entry point
 templates/             Flask HTML templates
 static/                Responsive CSS and browser interactions

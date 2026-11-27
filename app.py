@@ -28,7 +28,7 @@ from resume_service import (
     FOCUS_AREAS,
     TOOLS,
     AffindaParserError,
-    GeminiConfigurationError,
+    OpenAIConfigurationError,
     analyze_job_match,
     analyze_resume,
     generate_cover_letter,
@@ -193,7 +193,7 @@ def run_api_operation(operation):
         return api_error(str(error), 429)
     except AffindaParserError as error:
         return api_error(str(error), error.status_code)
-    except GeminiConfigurationError as error:
+    except OpenAIConfigurationError as error:
         return api_error(str(error), 503)
     except Exception:
         # Avoid returning prompts, resume text, credentials, or internal traces to the browser.
