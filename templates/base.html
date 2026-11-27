@@ -13,7 +13,7 @@
   <script src="{{ url_for('static', filename='vendor/Flip.min.js') }}" defer></script>
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>{% endif %}
 </head>
-<body class="app-page">
+<body class="app-page{% if request.endpoint in ['privacy', 'terms'] %} legal-page{% endif %}">
   <a class="skip-link" href="#main-content">Skip to content</a>
   <header class="topbar">
     <div class="topbar-inner">
@@ -29,7 +29,7 @@
         <button class="nav-tab" type="button" data-view="history">History</button>
         <button class="nav-tab" type="button" data-view="tools">Resume tools</button>
       </nav>{% elif auth_user %}<nav class="main-nav" aria-label="Workspace navigation">
-        <a class="nav-tab mobile-home-tab is-active" href="{{ url_for('index') }}#view-home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5h-6v-6h-5v6h-6z"/></svg><span>Home</span></a>
+        <a class="nav-tab mobile-home-tab" href="{{ url_for('index') }}#view-home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3.5 10 8.5-7 8.5 7v10.5h-6v-6h-5v6h-6z"/></svg><span>Home</span></a>
         <a class="nav-tab" href="{{ url_for('index') }}#view-analyze">Analyze</a>
         <a class="nav-tab" href="{{ url_for('index') }}#view-match">Job match</a>
         <a class="nav-tab" href="{{ url_for('index') }}#view-letter">Cover letter</a>
