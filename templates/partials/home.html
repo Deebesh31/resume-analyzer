@@ -1,0 +1,78 @@
+<section id="view-home" class="workspace-view home-view is-visible" data-view-panel="home" aria-labelledby="home-title">
+  <div class="home-hero">
+    <div class="hero-copy-block" data-reveal>
+      <p class="eyebrow eyebrow-with-mark"><span class="eyebrow-pip"></span> Your next move, made clearer</p>
+      <h1 id="home-title">Know your story.<br><span>Make your next move.</span></h1>
+      <p class="hero-copy">A thoughtful workspace for sharper resumes, more relevant applications, and confident next steps.</p>
+      <div class="hero-actions">
+        <button class="button button-dark" type="button" data-switch-view="analyze">Review my resume <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></button>
+        <button class="button button-text" type="button" data-switch-view="match">Explore job match <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></button>
+      </div>
+      <div class="hero-caption"><span class="caption-stamp" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 2.2 12 7l5.2.4-4 3.4 1.3 5-4.5-2.8-4.5 2.8 1.3-5-4-3.4L8 7l2-4.8Z"/></svg></span><span>Practical guidance, built around your experience.</span></div>
+    </div>
+
+    <aside class="engine-card" aria-label="Career Intelligence Engine, choose a capability">
+      <div class="engine-card-top"><span class="engine-label"><i></i> CAREER INTELLIGENCE ENGINE</span><span class="engine-version">YOUR WORKSPACE <b>05</b></span></div>
+      <div class="engine-stage" id="career-engine">
+        <svg class="engine-connections" viewBox="0 0 620 360" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M150 72 C210 72 205 153 270 164"/><path d="M150 180 H258"/><path d="M150 288 C210 288 205 207 270 196"/>
+          <path d="M350 164 C415 153 410 72 470 72"/><path d="M362 180 H470"/><path d="M350 196 C415 207 410 288 470 288"/>
+          <circle cx="150" cy="72" r="3"/><circle cx="150" cy="180" r="3"/><circle cx="150" cy="288" r="3"/><circle cx="470" cy="72" r="3"/><circle cx="470" cy="180" r="3"/><circle cx="470" cy="288" r="3"/>
+        </svg>
+        <div class="engine-nodes engine-nodes-left">
+          <button class="engine-node is-selected" type="button" data-engine-view="analyze" aria-pressed="true"><span class="engine-selection-highlight" aria-hidden="true"></span><span class="engine-node-icon icon-lime"><svg viewBox="0 0 24 24"><path d="M7 3.8h7l4 4v12.4H7z"/><path d="M14 3.8v4h4M10 12h5M10 15.5h5"/></svg></span><span><strong>Resume review</strong><small>Find what to strengthen</small></span><i class="node-arrow" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></i></button>
+          <button class="engine-node" type="button" data-engine-view="match" aria-pressed="false"><span class="engine-node-icon icon-teal"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M8 10.5h5M10.5 8v5"/></svg></span><span><strong>Job match</strong><small>Bring the role into focus</small></span><i class="node-arrow" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></i></button>
+          <button class="engine-node" type="button" data-engine-view="letter" aria-pressed="false"><span class="engine-node-icon icon-blue"><svg viewBox="0 0 24 24"><path d="M4 5.5h16v13H4z"/><path d="m4.5 7 7.5 5.7L19.5 7M7 15h5"/></svg></span><span><strong>Cover letter</strong><small>Shape a relevant first draft</small></span><i class="node-arrow" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></i></button>
+        </div>
+        <div class="engine-core" aria-hidden="true">
+          <div class="core-orbit orbit-one"></div><div class="core-orbit orbit-two"></div>
+          <div class="core-document"><span class="doc-photo"></span><i class="doc-line line-a"></i><i class="doc-line line-b"></i><i class="doc-line line-c"></i><i class="doc-line line-d"></i><span class="doc-highlight"></span></div>
+        </div>
+        <div class="engine-nodes engine-nodes-right">
+          <button class="engine-node" type="button" data-engine-view="history" aria-pressed="false"><span class="engine-node-icon icon-amber"><svg viewBox="0 0 24 24"><path d="M4.5 8.5A8 8 0 1 1 4 13"/><path d="M4.5 4.5v4h4M12 7v5l3 2"/></svg></span><span><strong>History</strong><small>See how your story evolves</small></span><i class="node-arrow" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></i></button>
+          <button class="engine-node" type="button" data-engine-view="tools" aria-pressed="false"><span class="engine-node-icon icon-coral"><svg viewBox="0 0 24 24"><path d="m14 6 4-4 4 4-4 4M3 21l11-11M5 5h4M7 3v4M17 15h4M19 13v4"/></svg></span><span><strong>Resume tools</strong><small>Polish the details</small></span><i class="node-arrow" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></i></button>
+          <div class="engine-insight" aria-live="polite"><span class="insight-kicker">NOW IN FOCUS</span><strong id="engine-live-title">Resume review</strong><p id="engine-live-copy">A clear view of the strengths and opportunities in your experience.</p><button type="button" id="engine-open" data-switch-view="analyze">Open resume review <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></button></div>
+        </div>
+      </div>
+      <div class="engine-card-bottom"><span><i></i> Five focused ways to move forward</span><span>FOCUS A CAPABILITY</span></div>
+    </aside>
+  </div>
+
+  <div class="home-trust-row" data-reveal>
+    <div class="privacy-note" role="note"><span class="privacy-icon" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 2.3 16.3 5v4.6c0 3.6-2.5 6.6-6.3 8.1-3.8-1.5-6.3-4.5-6.3-8.1V5L10 2.3Z"/><path d="m7.5 9.8 1.7 1.7 3.5-3.7"/></svg></span><p><strong>Uploads are not stored by this app.</strong> This app has no database or file library; files are used to handle the request. To generate AI feedback, extracted resume text is sent to Google Gemini. Review the provider’s data handling terms before uploading sensitive information.</p></div>
+    <div class="usage-summary" aria-label="Remaining requests in this session"><div class="usage-heading"><span>THIS SESSION</span><span class="usage-live"><i></i> PRIVATE</span></div><div class="usage-item"><span>Resume reviews</span><b id="usage-resume">{{ usage.resume_analysis }}</b></div><div class="usage-item"><span>Job matches</span><b id="usage-match">{{ usage.job_match }}</b></div><div class="usage-item"><span>Cover letters</span><b id="usage-letter">{{ usage.cover_letter }}</b></div></div>
+  </div>
+
+  <section class="capability-section" aria-labelledby="capabilities-title">
+    <div class="section-heading capability-heading" data-reveal><div><p class="eyebrow">A workspace that works together</p><h2 id="capabilities-title">From first impression<br class="desktop-break"> to final detail.</h2></div><p class="section-heading-aside">Move between focused tools as your application takes shape. These are illustrative interface previews; real feedback appears after you submit a request.</p></div>
+    <div class="capability-grid">
+      <article class="capability-card capability-analyze" data-reveal>
+        <div class="capability-meta"><span class="capability-index">01</span><span class="capability-tag">START HERE</span></div>
+        <div class="mini-score-preview" aria-hidden="true"><div class="mini-score-ring"><span>76</span></div><div class="mini-score-copy"><i></i><i></i><i></i><span class="mini-score-note">Structure signals</span></div><span class="mini-float-chip">A clearer picture <b><img src="/static/icons/arrow-up-right.svg" alt=""></b></span></div>
+        <div class="capability-copy"><p class="eyebrow">Resume review</p><h3>See your resume<br>with fresh eyes.</h3><p>Get practical feedback, text checks, and a heuristic structure score.</p><button class="text-link" type="button" data-switch-view="analyze">Review your resume <span class="text-link-icon" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></span></button></div>
+      </article>
+      <article class="capability-card capability-match" data-reveal>
+        <div class="capability-meta"><span class="capability-index">02</span><span class="capability-tag">ROLE BY ROLE</span></div>
+        <div class="mini-match-preview" aria-hidden="true"><div class="match-preview-head"><span>YOUR EXPERIENCE</span><span>ROLE NEEDS</span></div><div class="match-bridge"><i class="bridge-line"></i><span class="bridge-node"><img src="/static/icons/arrow-left-right.svg" alt=""></span></div><div class="match-chip-row"><span>Research</span><span class="chip-shared">Product strategy</span><span>Roadmaps</span></div><div class="match-preview-foot"><span><i></i> Shared language</span><span>ILLUSTRATIVE</span></div></div>
+        <div class="capability-copy"><p class="eyebrow">Job match</p><h3>Connect your skills<br>to the role.</h3><p>Compare your resume with a job description and surface useful overlap.</p><button class="text-link" type="button" data-switch-view="match">Explore a job match <span class="text-link-icon" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></span></button></div>
+      </article>
+      <article class="capability-card capability-letter" data-reveal>
+        <div class="capability-meta"><span class="capability-index">03</span><span class="capability-tag">MAKE IT PERSONAL</span></div>
+        <div class="mini-letter-preview" aria-hidden="true"><div class="letter-sheet"><span class="letter-date"></span><span class="letter-salutation"></span><i></i><i></i><i class="short"></i><i></i><i class="medium"></i><span class="letter-sign"></span></div><span class="letter-note">A starting point<br>that sounds like you</span></div>
+        <div class="capability-copy"><p class="eyebrow">Cover letter</p><h3>Start with context.<br>Make it yours.</h3><p>Build a first draft around your experience, the role, and your preferred tone.</p><button class="text-link" type="button" data-switch-view="letter">Draft a cover letter <span class="text-link-icon" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></span></button></div>
+      </article>
+      <article class="capability-card capability-history" data-reveal>
+        <div class="capability-meta"><span class="capability-index">04</span><span class="capability-tag">IN THIS TAB ONLY</span></div>
+        <div class="mini-history-preview" aria-hidden="true"><div class="history-preview-head"><span>RECENT REVIEWS</span><span class="history-preview-icon" aria-hidden="true"><img src="/static/icons/trending-up.svg" alt=""></span></div><div class="history-preview-row"><b>Product Designer resume</b><span>76</span><i>Today</i></div><div class="history-preview-row"><b>Product Designer resume</b><span>71</span><i>Earlier</i></div><div class="history-preview-compare"><span>+5</span><i></i><small>Change across reviews</small></div></div>
+        <div class="capability-copy"><p class="eyebrow">History</p><h3>Keep track of<br>your progress.</h3><p>Compare resume reviews held in this browser tab while it stays open.</p><button class="text-link" type="button" data-switch-view="history">View session history <span class="text-link-icon" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></span></button></div>
+      </article>
+      <article class="capability-card capability-tools" data-reveal>
+        <div class="capability-meta"><span class="capability-index">05</span><span class="capability-tag">SMALL, USEFUL EDITS</span></div>
+        <div class="mini-tools-preview" aria-hidden="true"><div class="tool-preview-top"><span>Bullet point improver</span><span class="tool-preview-icon"><img src="{{ url_for('static', filename='icons/notebook-pen.svg') }}" alt=""></span></div><div class="tool-before"><small>BEFORE</small><span>Helped with product updates</span></div><div class="tool-arrow" aria-hidden="true"><img src="/static/icons/arrow-down.svg" alt=""></div><div class="tool-after"><small>YOUR NEXT DRAFT</small><span>Coordinated product updates across a 6-person team</span></div><span class="tool-caution">Illustrative example · verify every detail</span></div>
+        <div class="capability-copy"><p class="eyebrow">Resume tools</p><h3>Polish the line<br>that needs it.</h3><p>Focused writing helpers for action verbs, achievements, bullets, sections, and interviews.</p><button class="text-link" type="button" data-switch-view="tools">Explore resume tools <span class="text-link-icon" aria-hidden="true"><img src="/static/icons/arrow-up-right.svg" alt=""></span></button></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="workflow-note" data-reveal aria-label="How it works"><span class="workflow-seal" aria-hidden="true">R</span><div><p class="eyebrow">A useful first pass</p><h2>Guidance to build on.<br><span>Your judgment stays central.</span></h2></div><div class="workflow-steps"><span><b>01</b> Bring your resume</span><span><b>02</b> Choose a focused review</span><span><b>03</b> Verify, refine, and make it yours</span></div></section>
+</section>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="theme-color" content="#f4f3ee">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}Resume Analyzer · Career clarity workspace{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script src="{{ url_for('static', filename='vendor/gsap.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='vendor/Flip.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body class="app-page">
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#view-home" data-switch-view="home" aria-label="Resume Analyzer overview">
+        <span class="brand-mark" aria-hidden="true"><span>R</span><i></i></span>
+        <span class="brand-copy"><strong>Resume Analyzer</strong><small>Career clarity workspace</small></span>
+      </a>
+      <nav class="main-nav" aria-label="Workspace">
+        <button class="nav-tab" type="button" data-view="analyze">Analyze</button>
+        <button class="nav-tab" type="button" data-view="match">Job match</button>
+        <button class="nav-tab" type="button" data-view="letter">Cover letter</button>
+        <button class="nav-tab" type="button" data-view="history">History</button>
+        <button class="nav-tab" type="button" data-view="tools">Resume tools</button>
+      </nav>
+      <div class="topbar-actions">
+        <span class="workspace-presence"><i aria-hidden="true"></i> Private workspace</span>
+        {% if password_protected %}
+        <form action="{{ url_for('logout') }}" method="post" class="logout-form">
+          <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+          <button class="signout-button" type="submit">Sign out <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+  <main id="main-content" class="page-shell">
+    {% block content %}{% endblock %}
+    <footer class="footer-note"><span class="footer-mark" aria-hidden="true">R</span><span>Resume Analyzer</span><span class="footer-dot">·</span><span>AI feedback is advisory. Verify details before using them.</span></footer>
+  </main>
+</body>
+</html>

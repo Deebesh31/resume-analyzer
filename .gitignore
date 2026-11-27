@@ -23,8 +23,6 @@ env/
 *~
 .DS_Store
 
-# Streamlit cache
-.streamlit/
 
 # Logs
 *.log

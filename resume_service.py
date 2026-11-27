@@ -239,22 +239,22 @@ def build_resume_prompt(text, stats, score, analysis_mode, focus_areas, job_role
 
 Please provide structured feedback in this format:
 
-## 🎯 Executive Summary
+## Executive Summary
 [Brief overall assessment]
 
-## ✅ Key Strengths
+## Key Strengths
 [3-5 specific strengths with examples]
 
-## 🔧 Areas for Improvement
+## Areas for Improvement
 [Specific issues with examples from resume]
 
-## 💡 Actionable Recommendations
+## Actionable Recommendations
 [Concrete, prioritized suggestions]
 
-## 🚀 Next Steps
+## Next Steps
 [Immediate actions to take]
 
-Be specific, constructive, and actionable."""
+Be specific, constructive, and actionable. Use plain Markdown headings without emojis or decorative symbols."""
 
 
 def build_match_prompt(resume_text, job_description):
@@ -268,20 +268,22 @@ def build_match_prompt(resume_text, job_description):
 
 Provide analysis in this format:
 
-## 📊 Overall Match Assessment
+## Overall Match Assessment
 [Percentage estimate and summary]
 
-## ✅ Strong Matches
+## Strong Matches
 [Skills/experience that align well]
 
-## ⚠️ Gaps Identified
+## Gaps Identified
 [Missing qualifications or skills]
 
-## 💡 Recommendations
+## Recommendations
 [How to improve the match]
 
-## 🎯 Application Strategy
-[Tips for applying to this role]"""
+## Application Strategy
+[Tips for applying to this role]
+
+Use plain Markdown headings without emojis or decorative symbols."""
 
 
 def build_cover_letter_prompt(resume_text, job_description, company, role, tone):
@@ -305,7 +307,7 @@ Create a compelling cover letter that:
 5. Includes a clear call to action
 6. Maintains {tone.lower()} tone throughout
 
-Format it as a complete cover letter ready to send."""
+Format it as a complete cover letter ready to send. Do not include emojis or decorative symbols."""
 
 
 def build_tool_prompt(tool_name, text, target_industry="", target_role=""):
@@ -381,7 +383,7 @@ Format each as:
     }
     if tool_name not in prompts:
         raise ValueError("Choose one of the available resume tools.")
-    return prompts[tool_name]
+    return f"{prompts[tool_name]}\n\nDo not include emojis or decorative symbols in your response."
 
 
 def analyze_resume(file_name, file_bytes, analysis_mode="Standard Analysis", focus_areas=None,
@@ -467,5 +469,5 @@ DETAILED ANALYSIS:
 {analysis_text}
 
 ===========================================
-© 2025 AI Resume Analyzer Pro. All rights reserved.
+Copyright 2025 AI Resume Analyzer Pro. All rights reserved.
 """

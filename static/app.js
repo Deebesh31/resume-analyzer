@@ -8,8 +8,9 @@ function activateView(name, moveFocus = false) {
   document.querySelectorAll("[data-view]").forEach((tab) => {
     const active = tab.dataset.view === name;
     tab.classList.toggle("is-active", active);
-    tab.setAttribute("aria-selected", String(active));
-    tab.tabIndex = active ? 0 : -1;
+    if (active) tab.setAttribute("aria-current", "page");
+    else tab.removeAttribute("aria-current");
+    tab.tabIndex = active || name === "home" ? 0 : -1;
     if (active && moveFocus) tab.focus();
   });
   document.querySelectorAll("[data-view-panel]").forEach((panel) => {
@@ -18,6 +19,9 @@ function activateView(name, moveFocus = false) {
     panel.classList.toggle("is-visible", active);
   });
   if (name === "history") renderHistory();
+  if (name !== "home") selectEngineCapability(name, false);
+  else selectEngineCapability(activeCapability, true);
+  revealView(name);
 }
 
 document.querySelectorAll("[data-view]").forEach((tab) => {
@@ -34,12 +38,88 @@ document.querySelectorAll("[data-view]").forEach((tab) => {
 });
 
 document.querySelectorAll("[data-switch-view]").forEach((button) => {
-  button.addEventListener("click", () => activateView(button.dataset.switchView));
+  button.addEventListener("click", (event) => {
+    if (button.tagName === "A") event.preventDefault();
+    activateView(button.dataset.switchView);
+  });
 });
+
+const engineCapabilities = {
+  analyze: { title: "Resume review", copy: "A clear view of the strengths and opportunities in your experience.", action: "Open resume review" },
+  match: { title: "Job match", copy: "Bring a job description alongside your experience to see useful overlap.", action: "Explore a job match" },
+  letter: { title: "Cover letter", copy: "Shape a relevant first draft around your experience and the role.", action: "Draft a cover letter" },
+  history: { title: "History", copy: "Keep recent reviews together while this browser tab stays open.", action: "View session history" },
+  tools: { title: "Resume tools", copy: "Make focused edits to bullets, achievements, sections, and interview prep.", action: "Explore resume tools" },
+};
+const engineNodes = [...document.querySelectorAll("[data-engine-view]")];
+const engineHighlight = document.querySelector(".engine-selection-highlight");
+let activeCapability = "analyze";
+if (window.gsap && window.Flip) window.gsap.registerPlugin(window.Flip);
+function selectEngineCapability(name, animate = true) {
+  if (!engineCapabilities[name]) return;
+  const selected = engineNodes.find((node) => node.dataset.engineView === name);
+  if (!selected) return;
+  activeCapability = name;
+  engineNodes.forEach((node) => {
+    const active = node === selected;
+    node.classList.toggle("is-selected", active);
+    node.setAttribute("aria-pressed", String(active));
+  });
+  const capability = engineCapabilities[name];
+  document.getElementById("engine-live-title").textContent = capability.title;
+  document.getElementById("engine-live-copy").textContent = capability.copy;
+  const open = document.getElementById("engine-open");
+  open.dataset.switchView = name;
+  open.innerHTML = `${capability.action} <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span>`;
+  const homeView = document.getElementById("view-home");
+  if (engineHighlight && window.Flip && !homeView.hidden) {
+    const duration = animate && !prefersReducedMotion() ? 0.42 : 0;
+    window.Flip.fit(engineHighlight, selected, { duration, ease: "power2.inOut", scale: true });
+  }
+}
+if (engineHighlight && window.Flip) {
+  document.querySelector(".engine-stage").append(engineHighlight);
+  window.Flip.fit(engineHighlight, engineNodes[0], { duration: 0, scale: true });
+}
+engineNodes.forEach((node) => {
+  node.addEventListener("mouseenter", () => selectEngineCapability(node.dataset.engineView));
+  node.addEventListener("focus", () => selectEngineCapability(node.dataset.engineView));
+  node.addEventListener("click", () => activateView(node.dataset.engineView));
+});
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function revealView(name) {
+  if (prefersReducedMotion() || !window.gsap) return;
+  const view = document.querySelector(`[data-view-panel="${name}"]`);
+  if (!view) return;
+  const targets = [...view.querySelectorAll(":scope > [data-reveal], :scope > .workspace-head, :scope > .workspace-content > .module-heading")];
+  if (!targets.length) return;
+  window.gsap.fromTo(targets, { autoAlpha: 0, y: 12 }, { autoAlpha: 1, y: 0, duration: 0.52, stagger: 0.07, ease: "power3.out", clearProps: "all" });
+}
+
+if (window.gsap) {
+  const engineCore = document.querySelector(".engine-core");
+  if (engineCore && !prefersReducedMotion()) {
+    window.gsap.to(engineCore, { y: -5, duration: 2.4, repeat: -1, yoyo: true, ease: "sine.inOut" });
+  }
+}
+if ("IntersectionObserver" in window && window.gsap && !prefersReducedMotion()) {
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      window.gsap.fromTo(entry.target, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.62, ease: "power3.out", clearProps: "all" });
+      revealObserver.unobserve(entry.target);
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".capability-card[data-reveal], .workflow-note[data-reveal], .home-trust-row[data-reveal]").forEach((node) => revealObserver.observe(node));
+}
 
 function setError(id, message) {
   const element = document.getElementById(id);
-  element.textContent = message;
+  element.textContent = stripEmoji(message);
   element.hidden = !message;
 }
 
@@ -90,9 +170,29 @@ function escapeHtml(value) {
   })[character]);
 }
 
+function stripEmoji(value) {
+  return String(value ?? "")
+    .replace(/(?:[#*0-9]\uFE0F?\u20E3|[\u{1F1E6}-\u{1F1FF}]{2}|[\p{Emoji_Presentation}\p{Extended_Pictographic}\p{Emoji_Modifier}])/gu, "")
+    .replace(/[\uFE0E\uFE0F\u200D\u20E3]/gu, "");
+}
+
+function iconForHeading(headingText) {
+  const title = stripEmoji(headingText).replace(/\*\*/g, "").toLowerCase();
+  if (/recommend|action plan|next step|suggest|priority|advice/.test(title)) return "lightbulb";
+  if (/strength|achievement|positive|success|highlight|key win/.test(title)) return "badge-check";
+  if (/improv|weakness|gap|opportunit|challenge|risk|develop/.test(title)) return "trending-up";
+  if (/ats|format|structure|readab|scann/.test(title)) return "scan-text";
+  if (/skill|technical|competenc|tool|stack/.test(title)) return "layers";
+  if (/experience|employment|work history|career|project/.test(title)) return "briefcase-business";
+  if (/education|academic|qualification|degree/.test(title)) return "graduation-cap";
+  if (/conclusion|closing|final thought|wrap.?up|takeaway/.test(title)) return "flag";
+  if (/summary|overview|profile/.test(title)) return "file-text";
+  return "notebook-pen";
+}
+
 // Render only a small Markdown subset after escaping all model-provided text.
 function safeMarkdown(markdown) {
-  const lines = escapeHtml(markdown || "").replace(/\r/g, "").split("\n");
+  const lines = escapeHtml(stripEmoji(markdown || "")).replace(/\r/g, "").split("\n");
   const output = [];
   let listType = null;
   let paragraph = [];
@@ -115,7 +215,11 @@ function safeMarkdown(markdown) {
     if (heading) {
       flushParagraph(); closeList();
       const level = Math.min(3, heading[1].length + 1);
-      output.push(`<h${level}>${heading[2].replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")}</h${level}>`);
+      const headingText = stripEmoji(heading[2]).trim();
+      const icon = iconForHeading(headingText);
+      const iconMarkup = `<span class="prose-heading-icon" aria-hidden="true"><img src="/static/icons/${icon}.svg" alt=""></span>`;
+      const textMarkup = headingText.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+      output.push(`<h${level} class="prose-heading prose-heading--${icon}">${iconMarkup}<span class="prose-heading-text">${textMarkup}</span></h${level}>`);
       continue;
     }
     if (bullet || numbered) {
@@ -135,7 +239,7 @@ function safeMarkdown(markdown) {
 }
 
 function setProse(id, text) {
-  document.getElementById(id).innerHTML = safeMarkdown(text);
+  document.getElementById(id).innerHTML = safeMarkdown(stripEmoji(text));
 }
 
 function addMetric(container, label, value, detail = "") {
@@ -157,21 +261,69 @@ function addMetric(container, label, value, detail = "") {
   container.append(card);
 }
 
+function animateScore(score) {
+  const scoreValue = document.getElementById("score-value");
+  const progress = document.getElementById("score-progress");
+  const scoreCard = document.querySelector(".score-card");
+  const scoreVisual = document.querySelector(".score-visual");
+  const marker = document.querySelector(".score-orbit-dot");
+  const circumference = 301.6;
+  const band = score >= 80 ? "strong" : score >= 60 ? "developing" : "early";
+  const setProgress = (value) => {
+    progress.style.strokeDasharray = String(circumference);
+    progress.style.strokeDashoffset = String(circumference * (1 - value / 100));
+  };
+  const markerRadius = scoreVisual.clientWidth * (48 / 120);
+  const markerAngle = (score / 100) * Math.PI * 2 - Math.PI / 2;
+  marker.style.left = `${scoreVisual.clientWidth / 2 + Math.cos(markerAngle) * markerRadius - marker.offsetWidth / 2}px`;
+  marker.style.top = `${scoreVisual.clientHeight / 2 + Math.sin(markerAngle) * markerRadius - marker.offsetHeight / 2}px`;
+  marker.style.right = "auto";
+
+  scoreCard.dataset.band = band;
+  scoreCard.hidden = false;
+  scoreCard.classList.remove("score-reveal");
+  void scoreCard.offsetWidth;
+  scoreCard.classList.add("score-reveal");
+
+  if (prefersReducedMotion() || !window.gsap) {
+    scoreValue.textContent = String(score);
+    setProgress(score);
+    marker.style.opacity = "1";
+    marker.style.transform = "scale(1)";
+    return;
+  }
+
+  scoreValue.textContent = "0";
+  setProgress(0);
+  const counter = { value: 0 };
+  window.gsap.to(counter, {
+    value: score,
+    duration: 1.55,
+    ease: "power3.out",
+    onUpdate: () => {
+      scoreValue.textContent = String(Math.round(counter.value));
+      setProgress(counter.value);
+    },
+  });
+  window.gsap.fromTo(marker, { scale: 0.25, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.48, delay: 0.9, ease: "back.out(2.2)", clearProps: "transform,opacity" });
+}
+
 function renderResumeResult(result) {
+  document.getElementById("analysis-results").hidden = false;
   const scoreResults = document.getElementById("score-results");
   const score = result.score;
   const stats = result.stats;
+  document.querySelector(".score-card").hidden = score === null;
   scoreResults.hidden = score === null && !stats;
-  document.getElementById("analysis-filename").textContent = result.filename || "";
+  const filename = stripEmoji(result.filename || "");
+  const analysis = stripEmoji(result.analysis || "");
+  const fullReport = stripEmoji(result.full_report || "");
+  document.getElementById("analysis-filename").textContent = filename;
   if (score !== null) {
-    const scoreValue = document.getElementById("score-value");
-    const progress = document.getElementById("score-progress");
     const label = score >= 80 ? "Strong foundations" : score >= 60 ? "Room to strengthen" : score >= 40 ? "Several opportunities" : "A useful starting point";
-    scoreValue.textContent = String(score);
     document.getElementById("score-label").textContent = label;
     document.getElementById("score-svg-desc").textContent = `Heuristic score: ${score} out of 100.`;
-    progress.setAttribute("stroke-dashoffset", "301.6");
-    requestAnimationFrame(() => { progress.setAttribute("stroke-dashoffset", String(301.6 * (1 - score / 100))); });
+    animateScore(score);
   }
   const metrics = document.getElementById("resume-metrics");
   metrics.replaceChildren();
@@ -186,7 +338,7 @@ function renderResumeResult(result) {
   const atsSection = document.getElementById("ats-results");
   atsSection.hidden = !result.ats;
   if (result.ats) {
-    document.getElementById("ats-status").textContent = result.ats.status;
+    document.getElementById("ats-status").textContent = stripEmoji(result.ats.status);
     document.getElementById("ats-score").textContent = `${result.ats.score}/100 text-check score`;
     const issues = document.getElementById("ats-issues");
     issues.replaceChildren();
@@ -195,7 +347,7 @@ function renderResumeResult(result) {
       result.ats.issues.forEach((issue) => {
         const chip = document.createElement("span");
         chip.className = "keyword-chip missing";
-        chip.textContent = issue;
+        chip.textContent = stripEmoji(issue);
         issues.append(chip);
       });
     } else {
@@ -211,26 +363,25 @@ function renderResumeResult(result) {
     result.action_verbs.forEach((item) => {
       const row = document.createElement("p");
       row.className = "muted";
-      row.textContent = `“${item.weak}” · ${item.count} occurrence${item.count === 1 ? "" : "s"} · Alternatives: ${item.strong.join(", ")}`;
+      row.textContent = stripEmoji(`“${item.weak}” · ${item.count} occurrence${item.count === 1 ? "" : "s"} · Alternatives: ${item.strong.join(", ")}`);
       list.append(row);
     });
   }
-  setProse("analysis-body", result.analysis);
-  downloads.analysis = result.analysis || "";
-  downloads.fullReport = result.full_report || "";
-  document.getElementById("analysis-results").hidden = false;
+  setProse("analysis-body", analysis);
+  downloads.analysis = analysis;
+  downloads.fullReport = fullReport;
   addHistoryEntry({
-    filename: result.filename,
+    filename,
     score: result.score,
     stats: result.stats,
-    analysis: result.analysis,
-    fullReport: result.full_report,
+    analysis,
+    fullReport,
     date: new Date().toLocaleString(),
   });
 }
 
 function addHistoryEntry(entry) {
-  historyEntries.unshift(entry);
+  historyEntries.unshift({ ...entry, filename: stripEmoji(entry.filename || ""), analysis: stripEmoji(entry.analysis || ""), fullReport: stripEmoji(entry.fullReport || "") });
   if (historyEntries.length > 3) historyEntries.pop();
   renderHistory();
 }
@@ -250,7 +401,7 @@ function renderHistory() {
     const main = document.createElement("div");
     main.className = "history-entry-main";
     const title = document.createElement("strong");
-    title.textContent = entry.filename || "Resume review";
+    title.textContent = stripEmoji(entry.filename || "Resume review");
     const date = document.createElement("small");
     date.textContent = entry.date;
     main.append(title, date);
@@ -279,7 +430,7 @@ function populateCompareSelects() {
     historyEntries.forEach((entry, index) => {
       const option = document.createElement("option");
       option.value = String(index);
-      option.textContent = `${entry.filename || "Resume"} · ${entry.date}`;
+      option.textContent = `${stripEmoji(entry.filename || "Resume")} · ${entry.date}`;
       select.append(option);
     });
     if ([...select.options].some((option) => option.value === previous)) select.value = previous;
@@ -334,7 +485,7 @@ function renderKeywords(keywords) {
     values.forEach((value) => {
       const chip = document.createElement("span");
       chip.className = `keyword-chip ${className}`;
-      chip.textContent = value;
+      chip.textContent = stripEmoji(value);
       chips.append(chip);
     });
     group.append(heading, chips);
@@ -344,7 +495,7 @@ function renderKeywords(keywords) {
 }
 
 function downloadText(text, filename) {
-  const blob = new Blob([text || ""], { type: "text/plain;charset=utf-8" });
+  const blob = new Blob([stripEmoji(text || "")], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -368,7 +519,7 @@ function setupFileInput(inputId, labelId) {
   if (!input) return;
   const label = labelId ? document.getElementById(labelId) : null;
   input.addEventListener("change", () => {
-    if (label) label.textContent = input.files?.[0]?.name || "No file selected";
+    if (label) label.textContent = stripEmoji(input.files?.[0]?.name || "No file selected");
   });
   const drop = input.closest(".file-drop");
   if (!drop) return;
@@ -391,6 +542,9 @@ function setupFileInput(inputId, labelId) {
 }
 
 setupFileInput("analysis-resume", "analysis-file-name");
+setupFileInput("match-resume", "match-file-name");
+setupFileInput("letter-resume", "letter-file-name");
+setupFileInput("interview-resume", "interview-file-name");
 
 async function connectForm({ formId, endpoint, loadingId, resultId, errorId, render }) {
   const form = document.getElementById(formId);
@@ -404,12 +558,20 @@ async function connectForm({ formId, endpoint, loadingId, resultId, errorId, ren
       render(result);
       document.getElementById(resultId).hidden = false;
       document.getElementById(errorId).hidden = true;
+      animateResults(resultId);
     } catch (error) {
       setError(errorId, error.message || "The request could not be completed.");
     } finally {
       setLoading(form, loadingId, resultId, errorId, false);
     }
   });
+}
+
+function animateResults(resultId) {
+  if (prefersReducedMotion() || !window.gsap) return;
+  const root = document.getElementById(resultId);
+  const children = [...root.children].filter((child) => !child.hidden);
+  window.gsap.fromTo(children, { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.58, stagger: 0.08, ease: "power3.out", clearProps: "all" });
 }
 
 connectForm({
@@ -419,12 +581,12 @@ connectForm({
 
 connectForm({
   formId: "match-form", endpoint: "/api/job-match", loadingId: "match-loading", resultId: "match-results", errorId: "match-error",
-  render: (result) => { renderKeywords(result.keywords); setProse("match-body", result.analysis); downloads.match = result.analysis || ""; },
+  render: (result) => { const analysis = stripEmoji(result.analysis || ""); renderKeywords(result.keywords); setProse("match-body", analysis); downloads.match = analysis; },
 });
 
 connectForm({
   formId: "letter-form", endpoint: "/api/cover-letter", loadingId: "letter-loading", resultId: "letter-results", errorId: "letter-error",
-  render: (result) => { setProse("letter-body", result.cover_letter); downloads.letter = result.cover_letter || ""; },
+  render: (result) => { const letter = stripEmoji(result.cover_letter || ""); setProse("letter-body", letter); downloads.letter = letter; },
 });
 
 const toolSelect = document.getElementById("tool-name");
@@ -435,6 +597,13 @@ const toolTextLabel = document.getElementById("tool-text-label");
 const toolText = document.getElementById("tool-text");
 const toolHelp = document.getElementById("tool-help");
 const quantifierWarning = document.getElementById("quantifier-warning");
+const toolIntros = {
+  "Action Verb Replacer": ["Find sharper ways to describe the work you led.", "01 / 05"],
+  "Achievement Quantifier": ["Make outcomes concrete using only numbers you can verify.", "02 / 05"],
+  "Bullet Point Improver": ["Give a responsibility or result a clearer shape.", "03 / 05"],
+  "Section Reorganizer": ["Make the order of your experience easier to follow.", "04 / 05"],
+  "Interview Question Generator": ["Turn your resume and target role into thoughtful practice.", "05 / 05"],
+};
 function updateToolFields() {
   const selected = toolSelect.value;
   const interview = selected === "Interview Question Generator";
@@ -454,6 +623,12 @@ function updateToolFields() {
     toolHelp.textContent = labels[selected][1];
     toolText.placeholder = selected === "Section Reorganizer" ? "e.g. Summary, Experience, Education, Skills" : "Paste the content you want to work on…";
   }
+  const intro = toolIntros[selected];
+  if (intro) {
+    document.getElementById("tool-selection-title").textContent = selected;
+    document.getElementById("tool-selection-description").textContent = intro[0];
+    document.querySelector(".tool-accent-count").textContent = intro[1];
+  }
 }
 toolSelect.addEventListener("change", updateToolFields);
 updateToolFields();
@@ -461,9 +636,10 @@ updateToolFields();
 connectForm({
   formId: "tools-form", endpoint: "/api/tools", loadingId: "tools-loading", resultId: "tools-results", errorId: "tools-error",
   render: (result) => {
-    setProse("tools-body", result.output);
+    const output = stripEmoji(result.output || "");
+    setProse("tools-body", output);
     document.getElementById("tool-result-title").textContent = `${toolSelect.value} suggestions`;
-    downloads.tool = result.output || "";
+    downloads.tool = output;
   },
 });
 
@@ -473,4 +649,9 @@ document.getElementById("clear-history").addEventListener("click", () => {
   historyEntries.length = 0;
   renderHistory();
 });
+
+if (window.gsap && !prefersReducedMotion()) {
+  window.gsap.fromTo(".hero-copy-block", { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.65, ease: "power3.out", clearProps: "all" });
+  window.gsap.fromTo(".engine-card", { autoAlpha: 0, y: 20, scale: 0.985 }, { autoAlpha: 1, y: 0, scale: 1, duration: 0.72, delay: 0.1, ease: "power3.out", clearProps: "all" });
+}
 

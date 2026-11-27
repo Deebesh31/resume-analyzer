@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token }}">
-  <meta name="theme-color" content="#f6f7f9">
+  <meta name="theme-color" content="#f4f3ee">
   <title>Sign in · Resume Analyzer</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
@@ -24,7 +24,7 @@
         <input type="hidden" name="_csrf" value="{{ csrf_token }}">
         <label class="field-label" for="password">Workspace password</label>
         <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
-        <button class="button button-primary" type="submit">Sign in <span aria-hidden="true">→</span></button>
+        <button class="button button-dark" type="submit">Sign in <span class="button-icon" aria-hidden="true"><img src="/static/icons/arrow-right.svg" alt=""></span></button>
       </form>
       <p class="field-help">This workspace uses one shared password. It does not create individual user accounts.</p>
     </section>
